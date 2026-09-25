@@ -14,6 +14,10 @@ on:
         description: "Só diagnosticar (mostra no log o que o scraper vê; não salva dados)"
         type: boolean
         default: false
+      diagnose_api:
+        description: "Só testar a API oficial (credenciais e busca da loja; não salva dados)"
+        type: boolean
+        default: false
       diagnose_args:
         description: "Argumentos extras do diagnóstico (ex.: --deep --url URL)"
         type: string
@@ -32,6 +36,9 @@ jobs:
     timeout-minutes: 120
     env:
       MELI_DEBUG_DIR: debug
+      MELI_CLIENT_ID: ${{ secrets.MELI_CLIENT_ID }}
+      MELI_CLIENT_SECRET: ${{ secrets.MELI_CLIENT_SECRET }}
+      MELI_SOURCE: ${{ vars.MELI_SOURCE || 'auto' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,8 +62,12 @@ jobs:
           MELI_FETCHER: ${{ inputs.browser && 'browser' || vars.MELI_FETCHER || 'requests' }}
         run: python -m meli_farma diagnose ${{ inputs.browser && '--browser' || '' }} ${{ inputs.diagnose_args }}
 
+      - name: Testar API
+        if: ${{ inputs.diagnose_api }}
+        run: python -m meli_farma diagnose-api ${{ inputs.diagnose_args }}
+
       - name: Coletar
-        if: ${{ !inputs.diagnose }}
+        if: ${{ !inputs.diagnose && !inputs.diagnose_api }}
         env:
           MELI_FETCHER: ${{ inputs.browser && 'browser' || vars.MELI_FETCHER || 'requests' }}
         run: python -m meli_farma scrape
@@ -70,7 +81,7 @@ jobs:
           retention-days: 7
 
       - name: Commitar dados
-        if: ${{ !inputs.diagnose }}
+        if: ${{ !inputs.diagnose && !inputs.diagnose_api }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898333+github-actions[bot]@users.noreply.github.com"

@@ -22,6 +22,11 @@ class Config:
     store_listing_url: str = _env(
         "MELI_STORE_LISTING_URL", "https://lista.mercadolivre.com.br/_Loja_mercadolivrefarma"
     )
+    # Id da loja oficial Mercado Livre Farma (visto no HTML da vitrine), usado pela API.
+    official_store_id: str = _env("MELI_OFFICIAL_STORE_ID", "244622")
+    # "api" (API oficial, precisa de MELI_CLIENT_ID/SECRET), "site" (HTML) ou "auto":
+    # usa a API quando há credenciais.
+    source: str = _env("MELI_SOURCE", "auto")
     # O Mercado Livre limita cada listagem a ~2000 resultados navegáveis. Categorias
     # acima deste limite são subdivididas nas subcategorias.
     listing_cap: int = int(_env("MELI_LISTING_CAP", "2000"))

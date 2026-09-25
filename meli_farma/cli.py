@@ -22,17 +22,36 @@ def _publish_summary(text: str) -> None:
             fh.write(text + "\n")
 
 
+def _use_api(args: argparse.Namespace, config: Config) -> bool:
+    source = args.source or config.source
+    if source == "auto":
+        return bool(os.environ.get("MELI_CLIENT_ID") or os.environ.get("MELI_ACCESS_TOKEN"))
+    return source == "api"
+
+
 def cmd_scrape(args: argparse.Namespace, config: Config) -> int:
-    if args.browser:
-        config.fetcher = "browser"
-    fetcher = make_fetcher(config)
-    try:
-        result = Scraper(config, fetcher).run(listing_url=args.url)
-    except BlockedError as exc:
-        logging.error("%s. Tente MELI_FETCHER=browser ou rodar a partir de outra rede.", exc)
-        return 2
-    finally:
-        fetcher.close()
+    if _use_api(args, config):
+        from .api import ApiCollector, ApiError, MeliApi
+
+        try:
+            api = MeliApi(delay=min(config.delay, 0.5), timeout=config.timeout, retries=config.retries)
+            result = ApiCollector(
+                api, config.official_store_id, config.data_dir / "categories_cache.json"
+            ).run()
+        except ApiError as exc:
+            logging.error("Erro na API: %s", exc)
+            return 2
+    else:
+        if args.browser:
+            config.fetcher = "browser"
+        fetcher = make_fetcher(config)
+        try:
+            result = Scraper(config, fetcher).run(listing_url=args.url)
+        except BlockedError as exc:
+            logging.error("%s. Tente MELI_FETCHER=browser ou rodar a partir de outra rede.", exc)
+            return 2
+        finally:
+            fetcher.close()
 
     if not result.products:
         logging.error("Nenhum produto coletado; nada foi salvo. Rode com MELI_DEBUG_DIR=debug para inspecionar o HTML.")
@@ -43,6 +62,47 @@ def cmd_scrape(args: argparse.Namespace, config: Config) -> int:
     if not args.no_report:
         write_dashboard(storage, config.docs_dir)
         _publish_summary(markdown_summary(storage))
+    return 0
+
+
+def cmd_diagnose_api(args: argparse.Namespace, config: Config) -> int:
+    """Testa as credenciais e a busca da loja na API, sem salvar nada."""
+    import json
+
+    from .api import ApiCollector, ApiError, MeliApi
+
+    try:
+        api = MeliApi(timeout=config.timeout, retries=2)
+    except ApiError as exc:
+        print("ERRO na autenticação:", exc)
+        return 2
+    print("autenticação:", api.token_info)
+    try:
+        me = api.get("/users/me")
+        print("usuário do token:", me.get("id"), me.get("nickname"))
+    except ApiError as exc:
+        print("/users/me:", exc)
+    for label, params in (
+        ("loja", {"official_store_id": config.official_store_id, "limit": 3}),
+        ("vendedor", {"seller_id": args.seller_id, "limit": 3}),
+    ):
+        try:
+            page = api.get("/sites/MLB/search", params)
+        except ApiError as exc:
+            print(f"busca por {label}: ERRO {exc}")
+            continue
+        print(f"busca por {label}: total={page.get('paging', {}).get('total')}")
+        for r in page.get("results", []):
+            print(f"   {r.get('id')} | {r.get('title', '')[:70]} | {r.get('price')} | cat={r.get('category_id')}")
+        for f in page.get("available_filters", []):
+            if f.get("id") == "category":
+                print("   categorias:", json.dumps(
+                    [(v.get("name"), v.get("results")) for v in f.get("values", [])], ensure_ascii=False)[:1500])
+    if args.full:
+        collector = ApiCollector(api, config.official_store_id, config.data_dir / "categories_cache.json")
+        result = collector.run()
+        print(f"coleta completa: {len(result.products)} produtos, total informado={result.total_reported}, "
+              f"{result.pages_fetched} requisições, {len(result.errors)} avisos")
     return 0
 
 
@@ -151,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--url", help="URL da listagem da loja (pula a descoberta pela vitrine)")
     p.add_argument("--browser", action="store_true", help="usa Chromium via Playwright")
     p.add_argument("--no-report", action="store_true", help="não regera o dashboard")
+    p.add_argument("--source", choices=["auto", "api", "site"], help="API oficial ou HTML do site (padrão: auto)")
     p.set_defaults(func=cmd_scrape)
 
     p = sub.add_parser("diagnose", help="mostra o que o scraper vê na vitrine e na listagem")
@@ -158,6 +219,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--deep", action="store_true", help="mostra classes, links e trechos do HTML")
     p.add_argument("--browser", action="store_true", help="usa Chromium via Playwright")
     p.set_defaults(func=cmd_diagnose)
+
+    p = sub.add_parser("diagnose-api", help="testa credenciais e busca da loja na API oficial")
+    p.add_argument("--seller-id", default="2565839818")
+    p.add_argument("--full", action="store_true", help="também roda a coleta completa (sem salvar)")
+    p.set_defaults(func=cmd_diagnose_api)
 
     p = sub.add_parser("report", help="regera docs/index.html a partir dos dados salvos")
     p.set_defaults(func=cmd_report)

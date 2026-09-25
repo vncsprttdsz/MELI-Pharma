@@ -10,7 +10,30 @@ Coleta diária dos produtos da loja oficial
 
 O resultado vira um dashboard estático em `docs/index.html` (pode ser publicado no GitHub Pages).
 
-## Como funciona
+## Fontes de dados
+
+O coletor tem dois modos (`MELI_SOURCE=auto|api|site`; `auto` usa a API quando há credenciais):
+
+- **API oficial** (`api.mercadolibre.com`, recomendado): busca os itens da loja oficial `244622`
+  com token de aplicativo. Precisa dos secrets `MELI_CLIENT_ID` e `MELI_CLIENT_SECRET`
+  (veja [Configurar a API](#configurar-a-api)). A categoria de cada produto é o caminho completo da
+  categoria do anúncio (ex.: `Saúde > Medicamentos > Analgésicos`).
+- **HTML do site** (descrito abaixo): não precisa de cadastro, mas o Mercado Livre exige login para
+  acessos a partir de servidores (como o GitHub Actions), então só funciona de uma conexão residencial.
+
+## Configurar a API
+
+1. Entre em <https://developers.mercadolivre.com.br/devcenter> com sua conta do Mercado Livre e crie
+   uma aplicação (nome e descrição livres; URI de redirect pode ser a URL deste repositório;
+   escopo de leitura).
+2. Copie o **App ID** (Client ID) e a **Secret Key**.
+3. No GitHub: **Settings → Secrets and variables → Actions → New repository secret** e crie
+   `MELI_CLIENT_ID` e `MELI_CLIENT_SECRET`.
+4. Em **Actions → Coleta diária → Run workflow**, marque "Só testar a API" para validar.
+
+Localmente: `MELI_CLIENT_ID=... MELI_CLIENT_SECRET=... python -m meli_farma diagnose-api`.
+
+## Como funciona (modo HTML)
 
 1. Abre a vitrine da loja e descobre o link da listagem completa (`lista.mercadolivre.com.br/_Loja_mercadolivrefarma`).
    Se não achar, usa `MELI_STORE_LISTING_URL`.
