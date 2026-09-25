@@ -14,6 +14,10 @@ on:
         description: "Só diagnosticar (mostra no log o que o scraper vê; não salva dados)"
         type: boolean
         default: false
+      diagnose_args:
+        description: "Argumentos extras do diagnóstico (ex.: --deep --url URL)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -49,7 +53,7 @@ jobs:
         if: ${{ inputs.diagnose }}
         env:
           MELI_FETCHER: ${{ inputs.browser && 'browser' || vars.MELI_FETCHER || 'requests' }}
-        run: python -m meli_farma diagnose ${{ inputs.browser && '--browser' || '' }}
+        run: python -m meli_farma diagnose ${{ inputs.browser && '--browser' || '' }} ${{ inputs.diagnose_args }}
 
       - name: Coletar
         if: ${{ !inputs.diagnose }}

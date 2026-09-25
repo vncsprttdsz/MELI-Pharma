@@ -56,7 +56,7 @@ def cmd_diagnose(args: argparse.Namespace, config: Config) -> int:
         config.fetcher = "browser"
     fetcher = make_fetcher(config)
     fetcher.check_blocks = False
-    urls = [args.url] if args.url else [config.store_page_url, config.store_listing_url]
+    urls = args.url if args.url else [config.store_page_url, config.store_listing_url]
     try:
         for url in urls:
             print(f"\n=== {url}")
@@ -86,9 +86,48 @@ def cmd_diagnose(args: argparse.Namespace, config: Config) -> int:
             if not page.products:
                 text = re.sub(r"<script.*?</script>|<style.*?</style>|<[^>]+>", " ", html, flags=re.S)
                 print("texto visível (início):", " ".join(text.split())[:800])
+            if args.deep:
+                _deep_report(html)
     finally:
         fetcher.close()
     return 0
+
+
+def _deep_report(html: str) -> None:
+    """Detalhes da estrutura da página, para adaptar o parser a um layout desconhecido."""
+    import re
+    from collections import Counter
+
+    classes = Counter()
+    for attr in re.findall(r'class="([^"]+)"', html):
+        for c in attr.split():
+            classes[c] += 1
+    keys = ("card", "item", "product", "price", "title", "result", "carousel", "grid", "pagination", "filter", "tab")
+    print("classes relevantes (top 60):")
+    for c, n in [(c, n) for c, n in classes.most_common() if any(k in c.lower() for k in keys)][:60]:
+        print(f"   {n:4d} {c}")
+    item_links = sorted(set(re.findall(r'href="([^"]*MLB-?\d{6,}[^"]*)"', html)))
+    print(f"links com id MLB: {len(item_links)}")
+    for link in item_links[:8]:
+        print("   ", link[:180])
+    other = sorted(set(l for l in re.findall(r'href="([^"]+)"', html)
+                       if re.search(r"farma|_Loja_|official|/loja/|page=|_Desde_|_NoIndex", l, re.I)))
+    print(f"links farma/loja/paginação: {len(other)}")
+    for link in other[:40]:
+        print("   ", link[:180])
+    for marker in ('"polycard"', '"results"', '"paging"', '"total"', '"official_store_id"', '"category_id"',
+                   '"available_filters"', '"pagination"', '"items"', "window.__", "_n.ctx"):
+        idx = html.find(marker)
+        ctx = html[max(0, idx - 80): idx + 220].replace("\n", " ") if idx >= 0 else ""
+        print(f"  {marker}: {html.count(marker)}  {ctx[:300]!r}" if idx >= 0 else f"  {marker}: 0")
+    for sid in re.findall(r'official_store_id["=:\s]+"?(\d+)', html)[:5]:
+        print("   official_store_id =", sid)
+    i = html.find("andes-money-amount")
+    if i >= 0:
+        start = html.rfind("<a ", 0, i)
+        start = max(start - 1500, 0) if start >= 0 else max(i - 2500, 0)
+        print("HTML em volta do primeiro preço:")
+        print(html[start: i + 1500])
 
 
 def cmd_report(args: argparse.Namespace, config: Config) -> int:
@@ -115,7 +154,8 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_scrape)
 
     p = sub.add_parser("diagnose", help="mostra o que o scraper vê na vitrine e na listagem")
-    p.add_argument("--url", help="diagnosticar apenas esta URL")
+    p.add_argument("--url", action="append", help="URL(s) a diagnosticar (pode repetir)")
+    p.add_argument("--deep", action="store_true", help="mostra classes, links e trechos do HTML")
     p.add_argument("--browser", action="store_true", help="usa Chromium via Playwright")
     p.set_defaults(func=cmd_diagnose)
 
