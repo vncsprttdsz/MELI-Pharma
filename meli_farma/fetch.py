@@ -23,18 +23,38 @@ class BlockedError(RuntimeError):
     """O site respondeu com captcha/verificação; insistir não adianta."""
 
 
-def _looks_blocked(url: str, body: str) -> bool:
-    url = url.lower()
-    if any(m in url for m in _BLOCK_URL_MARKERS):
-        return True
-    head = body[:20000].lower()
-    return any(m in head for m in _BLOCK_BODY_MARKERS)
+def block_reason(url: str, body: str) -> str | None:
+    """Motivo pelo qual a resposta parece ser uma página de bloqueio (ou None)."""
+    low_url = url.lower()
+    for m in _BLOCK_URL_MARKERS:
+        if m in low_url:
+            return f"URL final contém '{m}' ({url})"
+    low = body.lower()
+    # Páginas de listagem legítimas podem carregar scripts de captcha; só considera
+    # bloqueio se não houver nenhum sinal de conteúdo de listagem/loja.
+    if "ui-search" in low or "poly-card" in low:
+        return None
+    for m in _BLOCK_BODY_MARKERS:
+        if m in low:
+            return f"página contém '{m}' e nenhum conteúdo de listagem"
+    return None
+
+
+def describe(url: str, status: int | str, body: str) -> str:
+    """Resumo de uma resposta para o log (diagnóstico de bloqueio/parsing)."""
+    import re
+
+    m = re.search(r"<title[^>]*>(.*?)</title>", body, re.S | re.I)
+    title = " ".join(m.group(1).split())[:120] if m else "-"
+    return f"status={status} url={url} bytes={len(body)} title={title!r}"
 
 
 class Fetcher:
     def __init__(self, config: Config):
         self.config = config
         self._last = 0.0
+        # Desligado pelo comando "diagnose", que quer ver a página mesmo se for bloqueio.
+        self.check_blocks = True
 
     def _wait(self) -> None:
         delay = self.config.delay * (1 + random.random() * 0.5)
@@ -80,10 +100,15 @@ class RequestsFetcher(Fetcher):
                 last_exc = exc
                 log.warning("Erro de rede em %s (tentativa %d): %s", url, attempt, exc)
             else:
+                log.debug(describe(resp.url, resp.status_code, resp.text))
                 if resp.status_code == 200:
-                    if _looks_blocked(resp.url, resp.text):
+                    reason = self.check_blocks and block_reason(resp.url, resp.text)
+                    if reason:
                         self._dump(url, resp.text)
-                        raise BlockedError(f"Página de verificação/captcha ao acessar {url}")
+                        raise BlockedError(
+                            f"Página de verificação/captcha ao acessar {url}: {reason}; "
+                            + describe(resp.url, resp.status_code, resp.text)
+                        )
                     self._dump(url, resp.text)
                     return resp.url, resp.text
                 if resp.status_code == 404:
@@ -124,8 +149,12 @@ class BrowserFetcher(Fetcher):
                 time.sleep(min(60, 2**attempt))
                 continue
             self._dump(url, body)
-            if _looks_blocked(final, body):
-                raise BlockedError(f"Página de verificação/captcha ao acessar {url}")
+            log.debug(describe(final, "browser", body))
+            reason = self.check_blocks and block_reason(final, body)
+            if reason:
+                raise BlockedError(
+                    f"Página de verificação/captcha ao acessar {url}: {reason}; " + describe(final, "browser", body)
+                )
             return final, body
         assert last_exc is not None
         raise last_exc

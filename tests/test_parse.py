@@ -92,3 +92,12 @@ def test_find_store_listing_link():
         "https://lista.mercadolivre.com.br/_Loja_mercadolivrefarma"
     )
     assert find_store_listing_link("<a href='/ajuda'>x</a>", "https://x/") is None
+
+
+def test_block_reason():
+    from meli_farma.fetch import block_reason
+
+    assert block_reason("https://www.mercadolivre.com.br/gz/account-verification?go=x", "")
+    assert block_reason("https://lista.mercadolivre.com.br/x", "<div class='g-recaptcha'></div>")
+    # Listagem normal que por acaso carrega script de captcha não é bloqueio.
+    assert block_reason("https://lista.mercadolivre.com.br/x", "<li class='ui-search-layout__item'></li> g-recaptcha") is None

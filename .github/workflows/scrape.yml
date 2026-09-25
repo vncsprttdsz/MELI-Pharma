@@ -10,6 +10,10 @@ on:
         description: "Usar Chromium (Playwright) em vez de requests"
         type: boolean
         default: false
+      diagnose:
+        description: "Só diagnosticar (mostra no log o que o scraper vê; não salva dados)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -41,7 +45,14 @@ jobs:
           pip install playwright
           python -m playwright install --with-deps chromium
 
+      - name: Diagnosticar
+        if: ${{ inputs.diagnose }}
+        env:
+          MELI_FETCHER: ${{ inputs.browser && 'browser' || vars.MELI_FETCHER || 'requests' }}
+        run: python -m meli_farma diagnose ${{ inputs.browser && '--browser' || '' }}
+
       - name: Coletar
+        if: ${{ !inputs.diagnose }}
         env:
           MELI_FETCHER: ${{ inputs.browser && 'browser' || vars.MELI_FETCHER || 'requests' }}
         run: python -m meli_farma scrape
@@ -55,6 +66,7 @@ jobs:
           retention-days: 7
 
       - name: Commitar dados
+        if: ${{ !inputs.diagnose }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
