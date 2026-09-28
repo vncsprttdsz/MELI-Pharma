@@ -98,6 +98,16 @@ def cmd_diagnose_api(args: argparse.Namespace, config: Config) -> int:
             if f.get("id") == "category":
                 print("   categorias:", json.dumps(
                     [(v.get("name"), v.get("results")) for v in f.get("values", [])], ensure_ascii=False)[:1500])
+    for path in args.probe or []:
+        try:
+            resp = api.session.get(path if path.startswith("http") else "https://api.mercadolibre.com" + path,
+                                   timeout=config.timeout)
+            body = resp.text
+        except Exception as exc:  # noqa: BLE001
+            print(f"PROBE {path}: ERRO {exc}")
+            continue
+        print(f"PROBE {path}: HTTP {resp.status_code} ({len(body)} bytes)")
+        print("   ", body[: args.probe_chars].replace("\n", " "))
     if args.full:
         collector = ApiCollector(api, config.official_store_id, config.data_dir / "categories_cache.json")
         result = collector.run()
@@ -223,6 +233,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("diagnose-api", help="testa credenciais e busca da loja na API oficial")
     p.add_argument("--seller-id", default="2565839818")
     p.add_argument("--full", action="store_true", help="também roda a coleta completa (sem salvar)")
+    p.add_argument("--probe", action="append", help="GET extra na API (caminho), mostra status e início da resposta")
+    p.add_argument("--probe-chars", type=int, default=700)
     p.set_defaults(func=cmd_diagnose_api)
 
     p = sub.add_parser("report", help="regera docs/index.html a partir dos dados salvos")
