@@ -15,6 +15,13 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
+try:  # lxml é mais rápido, mas é opcional (no Termux pode não estar instalado).
+    import lxml  # noqa: F401
+
+    _PARSER = "lxml"
+except ImportError:  # pragma: no cover
+    _PARSER = "html.parser"
+
 _ITEM_ID_RE = re.compile(r"\b(MLB)-?(\d{6,})", re.I)
 _PRODUCT_ID_RE = re.compile(r"/p/(MLB\d{5,})", re.I)
 _CATEGORY_TITLES = {"categorias", "categoria", "categories", "category"}
@@ -400,7 +407,7 @@ def _html_breadcrumb(soup: BeautifulSoup) -> list[str]:
 
 
 def parse_listing(html: str, url: str) -> ListingPage:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, _PARSER)
     blobs = _embedded_json(soup)
 
     html_products = _html_products(soup, url)
@@ -432,7 +439,7 @@ def parse_listing(html: str, url: str) -> ListingPage:
 
 def find_store_listing_link(html: str, base_url: str) -> str | None:
     """Na vitrine da loja, encontra o link para a listagem com todos os produtos."""
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, _PARSER)
     links = [urljoin(base_url, a["href"]) for a in soup.select("a[href]")]
     candidates = [
         link.split("#")[0]

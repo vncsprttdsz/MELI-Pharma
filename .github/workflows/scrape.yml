@@ -1,9 +1,8 @@
 name: Coleta diária MELI Farma
 
+# Sem agendamento: a listagem da loja exige login para IPs de servidores, então a coleta
+# diária roda no celular (scripts/termux_*.sh). Este workflow fica para diagnósticos manuais.
 on:
-  schedule:
-    # 09:07 UTC = 06:07 em Brasília
-    - cron: "7 9 * * *"
   workflow_dispatch:
     inputs:
       browser:
@@ -38,7 +37,7 @@ jobs:
       MELI_DEBUG_DIR: debug
       MELI_CLIENT_ID: ${{ secrets.MELI_CLIENT_ID }}
       MELI_CLIENT_SECRET: ${{ secrets.MELI_CLIENT_SECRET }}
-      MELI_SOURCE: ${{ vars.MELI_SOURCE || 'auto' }}
+      MELI_SOURCE: ${{ vars.MELI_SOURCE || 'site' }}
     steps:
       - uses: actions/checkout@v4
 

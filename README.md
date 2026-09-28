@@ -12,14 +12,17 @@ O resultado vira um dashboard estático em `docs/index.html` (pode ser publicado
 
 ## Fontes de dados
 
-O coletor tem dois modos (`MELI_SOURCE=auto|api|site`; `auto` usa a API quando há credenciais):
+O coletor tem dois modos (`MELI_SOURCE=site|api`, padrão `site`):
 
-- **API oficial** (`api.mercadolibre.com`, recomendado): busca os itens da loja oficial `244622`
+- **API oficial** (`api.mercadolibre.com`): **hoje não funciona para esta loja** — a busca por loja/vendedor
+  responde 403 ("Searching another user items is restricted") mesmo com token. Mantido para o caso de o
+  acesso ser liberado. Busca os itens da loja oficial `244622`
   com token de aplicativo. Precisa dos secrets `MELI_CLIENT_ID` e `MELI_CLIENT_SECRET`
   (veja [Configurar a API](#configurar-a-api)). A categoria de cada produto é o caminho completo da
   categoria do anúncio (ex.: `Saúde > Medicamentos > Analgésicos`).
-- **HTML do site** (descrito abaixo): não precisa de cadastro, mas o Mercado Livre exige login para
-  acessos a partir de servidores (como o GitHub Actions), então só funciona de uma conexão residencial.
+- **HTML do site** (padrão): não precisa de cadastro, mas o Mercado Livre exige login para acessos a
+  partir de servidores, então roda de uma conexão residencial/móvel — veja
+  [Coleta diária no celular](#coleta-diária-no-celular-termux).
 
 ## Configurar a API
 
@@ -86,13 +89,33 @@ python -m meli_farma scrape --browser
 | `MELI_FETCHER` | `requests` | `browser` para usar Playwright |
 | `MELI_DEBUG_DIR` | — | salva o HTML de cada página baixada (útil quando o parsing quebra) |
 
-## Agendamento (GitHub Actions)
+## Coleta diária no celular (Termux)
 
-`.github/workflows/scrape.yml` roda todo dia às 06:07 (Brasília), commita `data/` e `docs/` no repositório e escreve
-o resumo da coleta na página do job. Também dá para rodar manualmente em **Actions → Coleta diária → Run workflow**
-(com a opção de usar o navegador). Para usar o navegador sempre, crie a variável de repositório `MELI_FETCHER=browser`.
+A listagem da loja exige login quando acessada a partir de servidores (inclusive o GitHub
+Actions), mas abre normalmente de uma conexão residencial ou móvel. Por isso a coleta diária
+roda num Android com [Termux](https://f-droid.org/packages/com.termux/):
 
-Se a coleta falhar, o HTML baixado fica disponível como artefato `debug-html` por 7 dias.
+1. Instale **Termux** e **Termux:API** pelo F-Droid (as versões da Play Store estão desatualizadas).
+2. Crie um token do GitHub em **Settings → Developer settings → Fine-grained tokens**, com acesso
+   só a este repositório e permissão **Contents: Read and write**.
+3. No Termux:
+   ```bash
+   pkg install -y git
+   git clone https://github.com/vncsprttdsz/MELI-Pharma.git
+   cd MELI-Pharma
+   bash scripts/termux_setup.sh
+   bash scripts/termux_run.sh     # primeira coleta; pede usuário e token (como senha) no push
+   ```
+4. Nas configurações do Android, desative a otimização de bateria para Termux e Termux:API.
+
+`termux_setup.sh` instala as dependências e agenda `termux_job.sh` para rodar a cada 24h (com
+internet). Cada execução coleta, commita `data/` e `docs/` e faz push. Log: `~/meli-farma.log`.
+
+## GitHub Actions
+
+`.github/workflows/scrape.yml` roda só manualmente (**Actions → Coleta diária → Run workflow**), com
+opções de diagnóstico do site e da API. O agendamento diário foi removido porque o acesso a partir
+dos servidores do GitHub é bloqueado.
 
 Para publicar o dashboard: **Settings → Pages → Deploy from a branch → `main` / `docs`**.
 
