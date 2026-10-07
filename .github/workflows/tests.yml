@@ -2,7 +2,7 @@ name: Testes
 
 on:
   push:
-    paths: ["meli_farma/**", "tests/**", "requirements.txt", "pyproject.toml"]
+    paths: ["meli_farma/**", "latam_tracker/**", "tests/**", "requirements.txt", "pyproject.toml"]
   pull_request:
 
 jobs:
