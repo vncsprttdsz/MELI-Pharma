@@ -1,0 +1,81 @@
+name: Preços LATAM GRU-LAX
+
+# Consulta 4x por dia (horários de Brasília: ~05h, 11h, 15h, 20h). Se o site bloquear os
+# servidores do GitHub, rode a coleta de um computador em casa (scripts/latam_run.sh).
+on:
+  schedule:
+    - cron: "7 8,14,18,23 * * *"
+  workflow_dispatch:
+    inputs:
+      diagnose:
+        description: "Só diagnosticar uma busca (não salva dados)"
+        type: boolean
+        default: false
+      diagnose_args:
+        description: "Argumentos do diagnóstico (ex.: --points --date 2027-04-01 --fetcher api)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: latam
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LATAM_DEBUG_DIR: debug
+      LATAM_HEADLESS: "0"  # janela "de verdade" num display virtual (xvfb) é menos barrada pelo anti-robô
+      LATAM_FETCHER: ${{ vars.LATAM_FETCHER || 'browser' }}
+      LATAM_NTFY_TOPIC: ${{ secrets.LATAM_NTFY_TOPIC }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          pip install -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Diagnosticar
+        if: ${{ inputs.diagnose }}
+        run: xvfb-run -a python -m latam_tracker diagnose ${{ inputs.diagnose_args }}
+
+      - name: Consultar
+        id: run
+        if: ${{ !inputs.diagnose }}
+        run: |
+          code=0
+          xvfb-run -a python -m latam_tracker run || code=$?
+          # 3 = algumas buscas falharam, mas o resto foi salvo
+          if [ "$code" != 0 ] && [ "$code" != 3 ]; then exit "$code"; fi
+
+      - name: Salvar arquivos de depuração
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: latam-debug
+          path: debug/
+          retention-days: 5
+          if-no-files-found: ignore
+
+      - name: Commitar dados
+        if: ${{ !inputs.diagnose }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git add data/latam docs/latam.html
+          if git diff --cached --quiet; then
+            echo "Sem mudanças."
+          else
+            git commit -m "latam: consulta de $(TZ=America/Sao_Paulo date '+%F %H:%M')"
+            for i in 1 2 3; do git pull --rebase --quiet && git push && break; sleep $((i * 10)); done
+          fi
