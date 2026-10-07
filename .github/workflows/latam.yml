@@ -1,10 +1,11 @@
 name: Preços LATAM GRU-LAX
 
-# Consulta 4x por dia (horários de Brasília: ~05h, 11h, 15h, 20h). Se o site bloquear os
-# servidores do GitHub, rode a coleta de um computador em casa (scripts/latam_run.sh).
+# Sem agendamento: a LATAM responde 403 à API de ofertas a partir dos servidores do GitHub
+# (teste de 07/10/2026). A coleta 4x/dia roda de um computador em casa (scripts/latam_run.sh).
+# Para tentar de novo pelo GitHub, descomente o schedule.
 on:
-  schedule:
-    - cron: "7 8,14,18,23 * * *"
+  # schedule:
+  #   - cron: "7 8,14,18,23 * * *"
   workflow_dispatch:
     inputs:
       diagnose:

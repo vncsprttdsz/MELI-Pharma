@@ -168,12 +168,11 @@ python -m latam_tracker summary             # resumo em Markdown da última cons
 
 ## Agendamento
 
-- **GitHub Actions** (`.github/workflows/latam.yml`): 4x/dia (05h, 11h, 15h e 20h de Brasília), com
-  Chromium num display virtual. Commita `data/latam/` e `docs/latam.html`. Pode ser disparado à mão em
-  **Actions → Preços LATAM GRU-LAX → Run workflow** (há a opção "Só diagnosticar").
-- **Se a LATAM bloquear os servidores do GitHub** (anti-robô Akamai — é o mais provável; foi o que
-  aconteceu com o Mercado Livre), rode de um computador em casa: `scripts/latam_run.sh` no cron
-  (instruções no topo do script). Desative o agendamento do workflow nesse caso.
+- **Computador em casa (recomendado):** `scripts/latam_run.sh` no cron, 4x/dia (instruções no topo do
+  script). Consulta, commita `data/latam/` e `docs/latam.html` e faz push.
+- **GitHub Actions** (`.github/workflows/latam.yml`): só manual (**Actions → Preços LATAM GRU-LAX → Run
+  workflow**, com opção "Só diagnosticar"). O agendamento está desligado porque, no teste de 07/10/2026,
+  a LATAM respondeu **403** à API de ofertas a partir dos servidores do GitHub (anti-robô).
 - No celular (Termux) não há Chromium para o Playwright; dá para tentar `LATAM_FETCHER=api`, que chama a
   API do site direto, mas ela costuma ser barrada sem os cookies que o navegador gera.
 
