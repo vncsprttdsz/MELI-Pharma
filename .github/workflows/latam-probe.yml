@@ -1,0 +1,72 @@
+name: LATAM — testar formas de acesso
+
+# Roda uma busca de teste (dinheiro e pontos) com cada estratégia de acesso, em paralelo, para
+# descobrir qual delas a proteção anti-robô da LATAM deixa passar a partir do GitHub.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: chromium
+            fetcher: browser
+            engine: chromium
+            install: playwright
+          - name: google-chrome
+            fetcher: browser
+            engine: chromium
+            browser_path: /usr/bin/google-chrome
+            install: playwright
+          - name: patchright
+            fetcher: browser
+            engine: patchright
+            channel: chrome
+            install: patchright
+          - name: camoufox
+            fetcher: browser
+            engine: camoufox
+            install: "camoufox[geoip]"
+          - name: api-curl_cffi
+            fetcher: api
+            engine: ""
+            install: curl_cffi
+    name: ${{ matrix.name }}
+    env:
+      LATAM_DEBUG_DIR: debug
+      LATAM_HEADLESS: "0"
+      LATAM_DELAY: "3"
+      LATAM_FETCHER: ${{ matrix.fetcher }}
+      LATAM_ENGINE: ${{ matrix.engine }}
+      LATAM_BROWSER_PATH: ${{ matrix.browser_path }}
+      LATAM_BROWSER_CHANNEL: ${{ matrix.channel }}
+      LATAM_PROXY: ${{ secrets.LATAM_PROXY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar
+        run: |
+          pip install -r requirements.txt "${{ matrix.install }}"
+          case "${{ matrix.install }}" in
+            playwright) python -m playwright install --with-deps chromium ;;
+            patchright) python -m patchright install-deps chromium || true ;;
+            camoufox*) python -m camoufox fetch && sudo apt-get install -y libgtk-3-0 libx11-xcb1 libasound2t64 || true ;;
+          esac
+      - name: Busca em dinheiro (ida 01/04)
+        run: xvfb-run -a python -m latam_tracker diagnose
+      - name: Busca em pontos (volta 11/04)
+        if: ${{ always() }}
+        run: xvfb-run -a python -m latam_tracker diagnose --points --back --date 2027-04-11
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: probe-${{ matrix.name }}
+          path: debug/
+          retention-days: 5
+          if-no-files-found: ignore

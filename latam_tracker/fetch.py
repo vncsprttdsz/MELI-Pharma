@@ -103,31 +103,77 @@ class Fetcher:
         pass
 
 
+def proxy_settings() -> dict[str, str] | None:
+    """``LATAM_PROXY`` (ex.: ``http://usuario:senha@host:porta``) no formato do Playwright."""
+    from urllib.parse import urlsplit
+
+    raw = os.environ.get("LATAM_PROXY", "").strip()
+    if not raw:
+        return None
+    u = urlsplit(raw)
+    out = {"server": f"{u.scheme}://{u.hostname}:{u.port}" if u.port else f"{u.scheme}://{u.hostname}"}
+    if u.username:
+        out["username"] = u.username
+        out["password"] = u.password or ""
+    return out
+
+
 class BrowserFetcher(Fetcher):
+    """Navegador real. ``LATAM_ENGINE``: ``chromium`` (Playwright), ``patchright`` (Chromium com
+    correções anti-detecção) ou ``camoufox`` (Firefox anti-detecção)."""
+
     def __init__(self, config: Config):
         super().__init__(config)
+        self.engine = os.environ.get("LATAM_ENGINE", "chromium").strip() or "chromium"
+        proxy = proxy_settings()
+        self._closers = []
         try:
-            from playwright.sync_api import sync_playwright
+            if self.engine == "camoufox":
+                from camoufox.sync_api import Camoufox
+
+                kwargs = {"headless": config.headless, "humanize": True, "locale": "pt-BR", "os": "windows"}
+                if proxy:
+                    kwargs.update(proxy=proxy, geoip=True)
+                cm = Camoufox(**kwargs)
+                self._browser = cm.__enter__()
+                self._closers.append(lambda: cm.__exit__(None, None, None))
+                self._context = self._browser.new_context()
+            else:
+                if self.engine == "patchright":
+                    from patchright.sync_api import sync_playwright
+                else:
+                    from playwright.sync_api import sync_playwright
+                pw = sync_playwright().start()
+                self._closers.append(pw.stop)
+                launch = {"headless": config.headless, "proxy": proxy}
+                if self.engine == "patchright":
+                    launch["channel"] = os.environ.get("LATAM_BROWSER_CHANNEL") or None
+                else:
+                    # LATAM_BROWSER_PATH: usar um Chrome/Chromium já instalado em vez do baixado pelo Playwright
+                    launch["executable_path"] = os.environ.get("LATAM_BROWSER_PATH") or None
+                    launch["args"] = ["--disable-blink-features=AutomationControlled"]
+                self._browser = pw.chromium.launch(**launch)
+                ctx = {"locale": "pt-BR", "timezone_id": "America/Sao_Paulo", "viewport": {"width": 1366, "height": 860}}
+                if self.engine == "chromium":
+                    ctx["user_agent"] = UA
+                self._context = self._browser.new_context(**ctx)
+                if self.engine == "chromium":
+                    self._context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         except ImportError as exc:  # pragma: no cover
-            raise FetchError(
-                "Playwright não instalado: pip install playwright && python -m playwright install chromium"
-            ) from exc
-        self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(
-            headless=config.headless,
-            # LATAM_BROWSER_PATH: usar um Chrome/Chromium já instalado em vez do baixado pelo Playwright
-            executable_path=os.environ.get("LATAM_BROWSER_PATH") or None,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
-        self._context = self._browser.new_context(
-            user_agent=UA,
-            locale="pt-BR",
-            timezone_id="America/Sao_Paulo",
-            viewport={"width": 1366, "height": 860},
-        )
-        self._context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            raise FetchError(f"motor '{self.engine}' não instalado: {exc}") from exc
+        self._closers[:0] = [self._context.close, self._browser.close]
         self._page = self._context.new_page()
         self._warm = False
+
+    def _humanize(self) -> None:
+        """Movimentos de mouse e rolagem: o script anti-robô do site avalia interação antes de liberar a API."""
+        pg = self._page
+        for _ in range(6):
+            pg.mouse.move(200 + random.random() * 900, 150 + random.random() * 500, steps=8)
+            pg.wait_for_timeout(200 + random.random() * 400)
+        pg.mouse.wheel(0, 400 + random.random() * 400)
+        pg.wait_for_timeout(800)
+        pg.mouse.wheel(0, -300)
 
     def _warmup(self) -> None:
         if self._warm:
@@ -135,9 +181,28 @@ class BrowserFetcher(Fetcher):
         self._warm = True
         try:
             self._page.goto(f"{BASE}/{self.config.site_country}/{self.config.site_lang}", timeout=self.config.timeout * 1000)
-            self._page.wait_for_timeout(3000 + random.random() * 2000)
+            try:
+                self._page.wait_for_load_state("networkidle", timeout=20000)
+            except Exception:  # noqa: BLE001
+                pass
+            self._humanize()
+            self._page.wait_for_timeout(4000 + random.random() * 3000)
         except Exception as exc:  # noqa: BLE001 - só aquecimento de cookies
             log.warning("Falha ao abrir a página inicial: %s", exc)
+
+    def _load(self, url: str, captured: list, statuses: list) -> None:
+        self._page.goto(url, timeout=self.config.timeout * 1000, wait_until="domcontentloaded")
+        deadline = time.monotonic() + self.config.timeout
+        moved = False
+        while not captured and time.monotonic() < deadline:
+            if not moved:
+                self._humanize()
+                moved = True
+            self._page.wait_for_timeout(1000)
+            if statuses and all(st.startswith("403") for st in statuses) and time.monotonic() > deadline - self.config.timeout / 2:
+                break
+        # A página às vezes faz uma segunda chamada (ex.: reordenação); espera um pouco por ela.
+        self._page.wait_for_timeout(1500)
 
     def search(self, origin: str, dest: str, day: str, points: bool) -> Any:
         self._warmup()
@@ -159,12 +224,12 @@ class BrowserFetcher(Fetcher):
 
         self._page.on("response", on_response)
         try:
-            self._page.goto(url, timeout=self.config.timeout * 1000, wait_until="domcontentloaded")
-            deadline = time.monotonic() + self.config.timeout
-            while not captured and time.monotonic() < deadline:
-                self._page.wait_for_timeout(1000)
-            # A página às vezes faz uma segunda chamada (ex.: reordenação); espera um pouco por ela.
-            self._page.wait_for_timeout(1500)
+            self._load(url, captured, statuses)
+            if not captured and statuses:
+                # Primeira chamada barrada: com os cookies já validados, a segunda costuma passar.
+                log.info("Oferta recusada (%s); tentando de novo em instantes", statuses[-1][:3])
+                self._page.wait_for_timeout(6000 + random.random() * 4000)
+                self._load(url, captured, statuses)
         except Exception as exc:  # noqa: BLE001
             raise FetchError(f"erro ao abrir {url}: {exc}") from exc
         finally:
@@ -176,7 +241,7 @@ class BrowserFetcher(Fetcher):
             self._dump(f"{tag}.html", f"<!-- {url} -->\n{html}")
             title = self._page.title()
             raise FetchError(
-                f"nenhuma resposta de ofertas capturada (título da página: {title!r}; "
+                f"nenhuma resposta de ofertas capturada (motor {self.engine}; título da página: {title!r}; "
                 f"chamadas vistas: {statuses or 'nenhuma'})"
             )
         payload = max(captured, key=lambda p: len(json.dumps(p)))
@@ -184,7 +249,7 @@ class BrowserFetcher(Fetcher):
         return payload
 
     def close(self) -> None:
-        for closer in (self._context.close, self._browser.close, self._pw.stop):
+        for closer in self._closers:
             try:
                 closer()
             except Exception:  # noqa: BLE001
@@ -194,27 +259,28 @@ class BrowserFetcher(Fetcher):
 class ApiFetcher(Fetcher):
     def __init__(self, config: Config):
         super().__init__(config)
-        import requests
+        try:
+            # Imita a impressão digital TLS/HTTP2 do Chrome; requests puro é barrado mais fácil.
+            from curl_cffi import requests as cffi
 
-        self._s = requests.Session()
-        self._s.headers.update(
-            {
-                "User-Agent": UA,
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "pt-BR,pt;q=0.9",
-            }
-        )
+            self._s = cffi.Session(impersonate="chrome")
+        except ImportError:
+            import requests
+
+            self._s = requests.Session()
+            self._s.headers["User-Agent"] = UA
+        self._s.headers.update({"Accept": "application/json, text/plain, */*", "Accept-Language": "pt-BR,pt;q=0.9"})
+        if os.environ.get("LATAM_PROXY"):
+            self._s.proxies = {"http": os.environ["LATAM_PROXY"], "https": os.environ["LATAM_PROXY"]}
         self._session_id = str(uuid.uuid4())
         self._warm = False
 
     def search(self, origin: str, dest: str, day: str, points: bool) -> Any:
-        import requests
-
         if not self._warm:
             self._warm = True
             try:
                 self._s.get(f"{BASE}/{self.config.site_country}/{self.config.site_lang}", timeout=self.config.timeout)
-            except requests.RequestException as exc:
+            except Exception as exc:  # noqa: BLE001
                 log.warning("Falha ao abrir a página inicial: %s", exc)
         self._wait()
         referer = search_page_url(self.config, origin, dest, day, points)
@@ -233,7 +299,7 @@ class ApiFetcher(Fetcher):
         params = api_params(self.config, origin, dest, day, points)
         try:
             r = self._s.get(BASE + API_PATH, params=params, headers=headers, timeout=self.config.timeout)
-        except requests.RequestException as exc:
+        except Exception as exc:  # noqa: BLE001
             raise FetchError(f"erro de rede: {exc}") from exc
         tag = f"{origin}-{dest}-{day}-{'pts' if points else 'brl'}"
         self._dump(f"{tag}.txt", f"{r.status_code} {r.url}\n\n{r.text[:200000]}")
