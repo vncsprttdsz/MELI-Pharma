@@ -113,3 +113,31 @@ def test_run_analyze_and_dashboard(tmp_path):
     page = write_dashboard(cfg, a).read_text(encoding="utf-8")
     assert "__" not in page.replace("__proto__", "")
     assert "81.000 pts" in page and "LA8180" in page
+
+
+def test_google_flights_fetcher_keeps_only_latam(monkeypatch):
+    pytest = __import__("pytest")
+    pytest.importorskip("fli")
+    from datetime import datetime
+    from types import SimpleNamespace as NS
+
+    from latam_tracker.gflights import GoogleFlightsFetcher
+
+    def leg(code, num, dep, arr):
+        return NS(airline=NS(name=code), flight_number=num,
+                  departure_datetime=datetime.fromisoformat(dep), arrival_datetime=datetime.fromisoformat(arr))
+
+    results = [
+        NS(price=4321.0, currency="BRL", stops=0, duration=740,
+           legs=[leg("LA", "8180", "2027-04-01T23:05", "2027-04-02T07:00")]),
+        NS(price=3000.0, currency="BRL", stops=0, duration=700,
+           legs=[leg("DL", "104", "2027-04-01T22:00", "2027-04-02T06:00")]),
+        NS(price=None, currency="BRL", stops=0, duration=740, legs=[]),
+    ]
+    f = GoogleFlightsFetcher(Config(delay=0))
+    seen = {}
+    f._client = NS(search=lambda filters, **kw: seen.update(kw) or results)
+    [row] = f.offers("GRU", "LAX", "2027-04-01", False)
+    assert seen["currency"] == "BRL"
+    assert row["flight"] == "LA8180" and row["price"] == 4321.0 and row["stops"] == 0
+    assert row["depart"].startswith("2027-04-01T23:05")
