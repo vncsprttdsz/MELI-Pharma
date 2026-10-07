@@ -1,11 +1,10 @@
 name: Preços LATAM GRU-LAX
 
-# Sem agendamento: a LATAM responde 403 à API de ofertas a partir dos servidores do GitHub
-# (teste de 07/10/2026). A coleta 4x/dia roda de um computador em casa (scripts/latam_run.sh).
-# Para tentar de novo pelo GitHub, descomente o schedule.
+# Consulta 4x por dia (horários de Brasília: ~05h, 11h, 15h, 20h). O preço em dinheiro vem do
+# Google Flights, que aceita consultas a partir do GitHub (o site da LATAM responde 403 daqui).
 on:
-  # schedule:
-  #   - cron: "7 8,14,18,23 * * *"
+  schedule:
+    - cron: "7 8,14,18,23 * * *"
   workflow_dispatch:
     inputs:
       diagnose:
@@ -13,7 +12,7 @@ on:
         type: boolean
         default: false
       diagnose_args:
-        description: "Argumentos do diagnóstico (ex.: --points --date 2027-04-01 --fetcher api)"
+        description: "Argumentos do diagnóstico (ex.: --back --date 2027-04-11)"
         type: string
         default: ""
 
@@ -30,8 +29,13 @@ jobs:
     timeout-minutes: 30
     env:
       LATAM_DEBUG_DIR: debug
-      LATAM_HEADLESS: "0"  # janela "de verdade" num display virtual (xvfb) é menos barrada pelo anti-robô
+      LATAM_DELAY: "4"
+      LATAM_HEADLESS: "0"
+      LATAM_MODES: ${{ vars.LATAM_MODES || 'cash' }}
+      LATAM_CASH_SOURCE: ${{ vars.LATAM_CASH_SOURCE || 'google' }}
       LATAM_FETCHER: ${{ vars.LATAM_FETCHER || 'browser' }}
+      LATAM_ENGINE: ${{ vars.LATAM_ENGINE || 'chromium' }}
+      LATAM_PROXY: ${{ secrets.LATAM_PROXY }}
       LATAM_NTFY_TOPIC: ${{ secrets.LATAM_NTFY_TOPIC }}
     steps:
       - uses: actions/checkout@v4
@@ -42,8 +46,12 @@ jobs:
           cache: pip
 
       - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Instalar navegador (só se for consultar o site da LATAM)
+        if: ${{ contains(vars.LATAM_MODES, 'points') || vars.LATAM_CASH_SOURCE == 'latam' }}
         run: |
-          pip install -r requirements.txt playwright
+          pip install playwright
           python -m playwright install --with-deps chromium
 
       - name: Diagnosticar
@@ -51,7 +59,6 @@ jobs:
         run: xvfb-run -a python -m latam_tracker diagnose ${{ inputs.diagnose_args }}
 
       - name: Consultar
-        id: run
         if: ${{ !inputs.diagnose }}
         run: |
           code=0

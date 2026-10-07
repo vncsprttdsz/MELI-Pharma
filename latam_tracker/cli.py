@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import sys
@@ -11,7 +10,6 @@ import sys
 from .config import Config
 from .fetch import FetchError, make_fetcher
 from .notify import notify
-from .parse import extract_offers
 from .report import analyze, markdown_summary, write_dashboard
 from .storage import Storage
 from .tracker import run
@@ -31,15 +29,17 @@ def _analysis(config: Config) -> dict:
 
 
 def cmd_run(args: argparse.Namespace, config: Config) -> int:
+    fetchers = {}
     try:
-        fetcher = make_fetcher(config)
+        for mode in config.modes:
+            fetchers[mode] = make_fetcher(config, mode)
+        result = run(config, fetchers)
     except FetchError as exc:
         logging.error("%s", exc)
         return 2
-    try:
-        result = run(config, fetcher)
     finally:
-        fetcher.close()
+        for f in fetchers.values():
+            f.close()
     if len(result.failed) == len(result.searches):
         logging.error("Todas as buscas falharam; nada foi salvo. Rode com LATAM_DEBUG_DIR=debug para inspecionar.")
         return 1
@@ -68,22 +68,20 @@ def cmd_diagnose(args: argparse.Namespace, config: Config) -> int:
     config.debug_dir = config.debug_dir or __import__("pathlib").Path("debug")
     origin, dest = (config.destination, config.origin) if args.back else (config.origin, config.destination)
     day = args.date or (config.inbound if args.back else config.outbound)
-    fetcher = make_fetcher(config)
     try:
-        payload = fetcher.search(origin, dest, day, args.points)
+        fetcher = make_fetcher(config, "points" if args.points else "cash")
+        try:
+            offers = fetcher.offers(origin, dest, day, args.points)
+        finally:
+            fetcher.close()
     except FetchError as exc:
         print(f"FALHOU: {exc}\n(arquivos de depuração em {config.debug_dir}/)")
         return 1
-    finally:
-        fetcher.close()
-    offers = extract_offers(payload)
     print(f"{origin}→{dest} {day} ({'pontos' if args.points else 'dinheiro'}): {len(offers)} tarifas reconhecidas")
     for o in sorted(offers, key=lambda o: o["price"]):
         print(f"  {o['flight']:<16} {o['depart'][:16]:<16} escalas={o['stops']} {o['brand']:<12} "
               f"{o['price']:>10,.0f} {o['currency']} taxas={o['taxes']}")
-    if not offers:
-        print("JSON capturado (início):\n" + json.dumps(payload, ensure_ascii=False)[:2000])
-    return 0
+    return 0 if offers else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -100,11 +98,14 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--back", action="store_true", help="trecho de volta")
     d.add_argument("--points", action="store_true", help="busca em pontos")
     d.add_argument("--fetcher", choices=["browser", "api"])
+    d.add_argument("--source", choices=["google", "latam"], help="fonte do preço em dinheiro")
     d.add_argument("--headed", action="store_true")
     args = p.parse_args(argv)
     config = Config.from_env()
     if getattr(args, "fetcher", None):
         config.fetcher = args.fetcher
+    if getattr(args, "source", None):
+        config.cash_source = args.source
     if getattr(args, "headed", False):
         config.headless = False
     return {"run": cmd_run, "report": cmd_report, "summary": cmd_summary, "diagnose": cmd_diagnose}[args.cmd](args, config)

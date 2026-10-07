@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .fetch import FetchError, Fetcher
-from .parse import extract_offers, is_points
+from .parse import is_points
 
 log = logging.getLogger(__name__)
 
@@ -28,20 +28,21 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
 
 
-def run(config: Config, fetcher: Fetcher, checked_at: str | None = None) -> RunResult:
+def run(config: Config, fetchers: Fetcher | dict[str, Fetcher], checked_at: str | None = None) -> RunResult:
+    """``fetchers``: um por modo ({"cash": ..., "points": ...}) ou o mesmo para todos."""
     result = RunResult(checked_at=checked_at or now_utc())
     for leg, origin, dest, day in config.legs():
         for mode in config.modes:
+            fetcher = fetchers[mode] if isinstance(fetchers, dict) else fetchers
             points = mode == "points"
             base = {"checked_at": result.checked_at, "leg": leg, "origin": origin,
                     "destination": dest, "date": day, "mode": mode}
             try:
-                payload = fetcher.search(origin, dest, day, points)
+                offers = fetcher.offers(origin, dest, day, points)
             except FetchError as exc:
                 log.error("%s %s→%s %s (%s): %s", leg, origin, dest, day, mode, exc)
                 result.searches.append({**base, "status": "error", "offers": 0, "detail": str(exc)[:300]})
                 continue
-            offers = extract_offers(payload)
             # Busca em pontos devolve pontos; em dinheiro, a moeda do país. Descarta o que não bate.
             offers = [o for o in offers if is_points(o["currency"]) == points or not o["currency"]]
             direct = [o for o in offers if o["stops"] == 0] if config.direct_only else offers

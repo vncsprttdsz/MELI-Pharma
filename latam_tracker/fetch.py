@@ -99,6 +99,12 @@ class Fetcher:
         """JSON da busca só de ida ``origin → dest`` em ``day``."""
         raise NotImplementedError
 
+    def offers(self, origin: str, dest: str, day: str, points: bool) -> list[dict[str, Any]]:
+        """Tarifas reconhecidas na busca (todas, com ou sem escala)."""
+        from .parse import extract_offers
+
+        return extract_offers(self.search(origin, dest, day, points))
+
     def close(self) -> None:
         pass
 
@@ -314,7 +320,13 @@ class ApiFetcher(Fetcher):
         return payload
 
 
-def make_fetcher(config: Config) -> Fetcher:
+def make_fetcher(config: Config, mode: str = "points") -> Fetcher:
+    """Fonte de cada modo: dinheiro vem do Google Flights (``LATAM_CASH_SOURCE=latam`` usa o site da
+    LATAM); pontos só existem no site da LATAM (``LATAM_FETCHER`` escolhe navegador ou API)."""
+    if mode == "cash" and config.cash_source == "google":
+        from .gflights import GoogleFlightsFetcher
+
+        return GoogleFlightsFetcher(config)
     if config.fetcher == "api":
         return ApiFetcher(config)
     return BrowserFetcher(config)

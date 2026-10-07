@@ -29,6 +29,7 @@ class Config:
     cabin: str = "Economy"  # Economy | Premium | Business (nomes usados no site)
     direct_only: bool = True
     modes: list[str] = field(default_factory=lambda: ["cash", "points"])
+    cash_source: str = "google"  # google (Google Flights) | latam (site da LATAM)
     site_country: str = "br"
     site_lang: str = "pt"
     fetcher: str = "browser"  # browser (Playwright) | api (requisição direta à API do site)
@@ -53,7 +54,9 @@ class Config:
             adults=int(_env("LATAM_ADULTS", "1")),
             cabin=_env("LATAM_CABIN", "Economy"),
             direct_only=_env("LATAM_DIRECT_ONLY", "1") not in ("0", "false", "no"),
-            modes=[m.strip() for m in _env("LATAM_MODES", "cash,points").split(",") if m.strip()],
+            # Pontos fica desligado por padrão: o site da LATAM bloqueia servidores e exige login para pontos.
+            modes=[m.strip() for m in _env("LATAM_MODES", "cash").split(",") if m.strip()],
+            cash_source=_env("LATAM_CASH_SOURCE", "google"),
             fetcher=_env("LATAM_FETCHER", "browser"),
             delay=float(_env("LATAM_DELAY", "8")),
             timeout=float(_env("LATAM_TIMEOUT", "60")),
