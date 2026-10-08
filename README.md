@@ -51,7 +51,7 @@ consulta anterior ou atinge o menor valor já registrado.
 
 Para ver o dashboard no navegador: **Settings → Pages → Deploy from a branch →
 `claude/meli-farma-scraping-monitor-xjxte3` / `docs`**. Ele fica em
-<https://vncsprttdsz.github.io/MELI-Pharma/latam.html> (a raiz redireciona para ele).
+<https://vncsprttdsz.github.io/flights/latam.html> (a raiz redireciona para ele).
 
 ## Configuração
 
