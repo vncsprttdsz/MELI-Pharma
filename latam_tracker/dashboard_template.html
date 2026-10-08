@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
 <style>
-:root { --bg:#f7f7f5; --card:#fff; --fg:#1d1d1f; --muted:#6b6b70; --line:#e3e3e0; --accent:#c8102e; --good:#1a7f37; --badge-bg:#e7f5ec; }
-@media (prefers-color-scheme: dark) { :root { --bg:#151517; --card:#1f1f22; --fg:#ececee; --muted:#9a9aa1; --line:#333338; --accent:#ff5a6e; --good:#4ac26b; --badge-bg:#1d3325; } }
+:root { --bg:#f7f7f5; --card:#fff; --fg:#1d1d1f; --muted:#6b6b70; --line:#e3e3e0; --accent:#c8102e; --good:#1a7f37; --badge-bg:#e7f5ec; --ideal:#b7791f; --ideal-bg:#fdf6e3; --up:#c8102e; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151517; --card:#1f1f22; --fg:#ececee; --muted:#9a9aa1; --line:#333338; --accent:#ff5a6e; --good:#4ac26b; --badge-bg:#1d3325; --ideal:#e3b341; --ideal-bg:#2b2412; --up:#ff7b72; } }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
 main { max-width:1000px; margin:0 auto; padding:24px 16px 48px; }
@@ -19,6 +19,14 @@ th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line);
 th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; }
 .sub { color:var(--muted); font-size:12px; } .muted { color:var(--muted); }
 .badge { background:var(--badge-bg); color:var(--good); border-radius:6px; padding:1px 6px; font-size:11px; font-weight:600; margin-left:4px; }
+tr.ideal td { background:var(--ideal-bg); }
+tr.ideal td:first-child { box-shadow: inset 3px 0 0 var(--ideal); }
+.tag { background:var(--ideal); color:#fff; border-radius:6px; padding:1px 6px; font-size:11px; font-weight:600; margin-left:4px; }
+.hero { border:2px solid var(--ideal); background:var(--ideal-bg); }
+.hero-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:16px; }
+.hero .big { font-size:30px; font-weight:700; line-height:1.2; margin:2px 0; }
+.hero .fact { font-size:13px; margin-top:4px; }
+.down { color:var(--good); font-weight:600; } .up { color:var(--up); font-weight:600; }
 .alerts { margin:12px 0 0; padding:12px 16px 12px 32px; background:var(--card); border:1px solid var(--accent); border-radius:12px; }
 .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr)); gap:16px; }
 .chart { position:relative; height:280px; }
@@ -30,6 +38,7 @@ th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(-
 <p class="lead">__SUBTITLE__</p>
 <p class="lead">Última consulta: <b>__UPDATED__</b> (Brasília) · __CHECKS__ consultas registradas</p>
 __ALERTS__
+__IDEAL__
 <section>
 <h2>Melhor tarifa direta por data (última consulta)</h2>
 <div class="scroll"><table><thead><tr><th>Trecho</th><th>Data</th>__MODE_HEADS__</tr></thead><tbody>__LEG_ROWS__</tbody></table></div>
@@ -39,8 +48,7 @@ __COMBOS__
 <section>
 <h2>Histórico</h2>
 <div class="charts">
-<div><h2 class="sub">Dinheiro (R$)</h2><div class="chart"><canvas id="c-cash"></canvas></div></div>
-<div><h2 class="sub">Pontos</h2><div class="chart"><canvas id="c-points"></canvas></div></div>
+__CHARTS__
 </div>
 </section>
 </main>
@@ -57,8 +65,11 @@ __COMBOS__
   d.modes.forEach(function (mode) {
     var el = document.getElementById("c-" + mode);
     if (!el) return;
-    var sets = [{ label: "Melhor ida+volta", data: d.history.map(function (h) { return h[mode]; }),
-                  borderColor: fg, borderWidth: 3, pointRadius: 0, spanGaps: true }];
+    var ideal = css.getPropertyValue("--ideal").trim();
+    var sets = [{ label: d.idealLabel, data: d.history.map(function (h) { return h["ideal|" + mode]; }),
+                  borderColor: ideal, backgroundColor: ideal, borderWidth: 4, pointRadius: 2, spanGaps: true },
+                { label: "Melhor ida+volta", data: d.history.map(function (h) { return h[mode]; }),
+                  borderColor: fg, borderWidth: 2, borderDash: [2, 2], pointRadius: 0, spanGaps: true }];
     d.series.filter(function (s) { return s.endsWith("|" + mode); }).forEach(function (s, i) {
       var key = s.split("|").slice(0, 2).join("|");
       sets.push({ label: d.labels[key], data: d.history.map(function (h) { return h[s] == null ? null : h[s]; }),

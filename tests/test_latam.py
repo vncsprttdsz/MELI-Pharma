@@ -71,7 +71,7 @@ class FakeFetcher(Fetcher):
     def search(self, origin, dest, day, points):
         if (day, points) in self.fail:
             raise FetchError("bloqueado")
-        direct_days = {"2027-04-01", "2027-04-11", "2027-04-09"}
+        direct_days = {"2027-04-01", "2027-04-09", "2027-04-10", "2027-04-11"}
         conn = offer("LA8064+LA2470", 1, [("Light", 99999 if points else 1500)],
                      currency="PTS" if points else "BRL")
         if day not in direct_days:
@@ -106,13 +106,20 @@ def test_run_analyze_and_dashboard(tmp_path):
     pts = a["combos"]["points"][0]
     assert pts["price"] == 40100 + 40900 and pts["taxes"] == 700
     assert any("⬇️" in m and "dinheiro" in m for m in a["alerts"])
+    # voo ideal = datas centrais (01/04 + 10/04): (3100-500) + (4000-500), antes 3100 + 4000
+    ideal = a["ideal"]["cash"]
+    assert ideal["current"]["price"] == 6100 and ideal["previous"] == 7100 and ideal["low"] == 6100
+    assert a["alerts"][0].startswith("⭐ Voo ideal (dinheiro)")
     assert not any("pontos" in m for m in a["alerts"])
 
     md = markdown_summary(cfg, a)
     assert "R$ 6.000" in md and "sem voo direto" in md and "falhou" in md
+    assert "⭐ Voo ideal (ida qui 01/04 + volta sáb 10/04) — Dinheiro: R$ 6.100" in md
     page = write_dashboard(cfg, a).read_text(encoding="utf-8")
     assert "__" not in page.replace("__proto__", "")
     assert "81.000 pts" in page and "LA8180" in page
+    assert "Voo ideal: ida qui 01/04 + volta sáb 10/04" in page and "▼ R$ 1.000" in page
+    assert page.count("class=ideal") == 2 + 2  # 2 linhas na tabela por data + 1 por tabela de combinações
 
 
 def test_google_flights_fetcher_keeps_only_latam(monkeypatch):
