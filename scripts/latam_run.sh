@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Consulta a LATAM + commit + push, para rodar de um computador em casa (Linux/macOS/WSL) via cron:
-#   7 5,11,15,20 * * *  bash /caminho/MELI-Pharma/scripts/latam_run.sh >> ~/latam.log 2>&1
+#   7 5,11,15,20 * * *  bash /caminho/flights/scripts/latam_run.sh >> ~/latam.log 2>&1
 # No Termux use LATAM_FETCHER=api (não há Chromium para o Playwright no Android).
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO" || exit 1
