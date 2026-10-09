@@ -118,7 +118,9 @@ def test_run_analyze_and_dashboard(tmp_path):
     page = write_dashboard(cfg, a).read_text(encoding="utf-8")
     assert "__" not in page.replace("__proto__", "")
     assert "81.000 pts" in page and "LA8180" in page
-    assert "Voo ideal: ida qui 01/04 + volta sáb 10/04" in page and "▼ R$ 1.000" in page
+    assert "qui 01/04 → sáb 10/04" in page and "▼ R$ 1.000 mais barato" in page
+    assert "data-key='ideal|cash' aria-pressed='true'" in page
+    assert "data-key='ida|2027-04-01|cash' aria-pressed='false'" in page
     assert page.count("class=ideal") == 2 + 2  # 2 linhas na tabela por data + 1 por tabela de combinações
 
 
@@ -148,3 +150,32 @@ def test_google_flights_fetcher_keeps_only_latam(monkeypatch):
     assert seen["currency"] == "BRL"
     assert row["flight"] == "LA8180" and row["price"] == 4321.0 and row["stops"] == 0
     assert row["depart"].startswith("2027-04-01T23:05")
+
+
+def test_whatsapp_alert(monkeypatch, tmp_path):
+    import requests
+
+    from latam_tracker.notify import notify
+    from latam_tracker.report import alert_message
+
+    calls = []
+
+    class Resp:
+        status_code = 200
+        text = "Message queued. You will receive it in a few seconds."
+
+    monkeypatch.setattr(requests, "get", lambda url, params, timeout: calls.append((url, params)) or Resp())
+    cfg = Config(data_dir=tmp_path, report_path=tmp_path / "x.html", delay=0, modes=["cash"],
+                 whatsapp_phone="+55 (11) 99999-8888", whatsapp_apikey="123456")
+    storage = Storage(cfg.data_dir)
+    for when, shift in (("2026-10-07T12:00Z", 0), ("2026-10-07T18:00Z", -500)):
+        r = run(cfg, FakeFetcher(cfg, cash_shift=shift), checked_at=when)
+        storage.save(r.quotes, r.searches)
+    a = analyze(cfg, storage.quotes(), storage.searches())
+    text = alert_message(cfg, a)
+    assert "⭐ Voo ideal (dinheiro): R$ 7.100 → R$ 6.100" in text
+    assert "Voo ideal (qui 01/04 → sáb 10/04): R$ 6.100" in text and text.endswith("/flights/latam.html")
+    assert notify(cfg, "Preço caiu", text)
+    url, params = calls[0]
+    assert url.endswith("/whatsapp.php") and params["phone"] == "5511999998888" and params["apikey"] == "123456"
+    assert params["text"].startswith("*Preço caiu*\n")
