@@ -25,18 +25,22 @@ def send_whatsapp(config: Config, text: str) -> bool:
         log.warning("Falha ao enviar WhatsApp: %s", exc)
         return False
     # O CallMeBot responde 203 quando aceita a mensagem ("Message to: ... Text to send: ...") e às vezes
-    # 2xx também em erros; o corpo diz se deu certo. Não loga o corpo inteiro: ele repete o número.
-    body = r.text.lower()
-    failed = any(k in body for k in ("apikey is invalid", "invalid apikey", "not activated", "error"))
-    if not 200 <= r.status_code < 300 or failed:
-        import re
+    # 2xx também em erros; o corpo diz se deu certo. O log mascara o número e a apikey.
+    import re
 
-        reason = re.sub(r"<[^>]+>", " ", r.text)
-        for secret in filter(None, (config.whatsapp_phone, phone, config.whatsapp_apikey)):
-            reason = reason.replace(secret, "***")
-        log.warning("CallMeBot recusou a mensagem (HTTP %s): %s", r.status_code, " ".join(reason.split())[:200])
+    text_only = " ".join(re.sub(r"<[^>]+>", " ", r.text).split())
+    for secret in filter(None, (config.whatsapp_phone, phone, config.whatsapp_apikey)):
+        text_only = text_only.replace(secret, "***")
+    # O corpo repete a mensagem enviada ("Text to send: ..."); só o que vem depois dela diz o resultado.
+    status_part = text_only.split("Text to send:", 1)[-1].lower()
+    status_part = status_part.replace(text.lower(), "")
+    markers = ("apikey is invalid", "invalid apikey", "not activated", "error", "paused", "blocked")
+    hit = next((k for k in markers if k in status_part[-400:]), None)
+    if not 200 <= r.status_code < 300 or hit:
+        log.warning("CallMeBot recusou a mensagem (HTTP %s, motivo: %s). Fim da resposta: %s",
+                    r.status_code, hit or "status HTTP", text_only[-400:])
         return False
-    log.info("WhatsApp enviado")
+    log.info("WhatsApp enviado. Resposta: %s", text_only[-200:])
     return True
 
 
