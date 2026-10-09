@@ -24,10 +24,17 @@ def send_whatsapp(config: Config, text: str) -> bool:
     except requests.RequestException as exc:
         log.warning("Falha ao enviar WhatsApp: %s", exc)
         return False
-    # O CallMeBot responde 200 mesmo em alguns erros; o corpo diz se a mensagem foi enfileirada.
+    # O CallMeBot responde 203 quando aceita a mensagem ("Message to: ... Text to send: ...") e às vezes
+    # 2xx também em erros; o corpo diz se deu certo. Não loga o corpo inteiro: ele repete o número.
     body = r.text.lower()
-    if r.status_code != 200 or "error" in body or "apikey is invalid" in body:
-        log.warning("CallMeBot recusou a mensagem (HTTP %s): %s", r.status_code, r.text[:300])
+    failed = any(k in body for k in ("apikey is invalid", "invalid apikey", "not activated", "error"))
+    if not 200 <= r.status_code < 300 or failed:
+        import re
+
+        reason = re.sub(r"<[^>]+>", " ", r.text)
+        for secret in filter(None, (config.whatsapp_phone, phone, config.whatsapp_apikey)):
+            reason = reason.replace(secret, "***")
+        log.warning("CallMeBot recusou a mensagem (HTTP %s): %s", r.status_code, " ".join(reason.split())[:200])
         return False
     log.info("WhatsApp enviado")
     return True

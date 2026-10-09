@@ -160,9 +160,9 @@ def test_whatsapp_alert(monkeypatch, tmp_path):
 
     calls = []
 
-    class Resp:
-        status_code = 200
-        text = "Message queued. You will receive it in a few seconds."
+    class Resp:  # resposta real do CallMeBot quando aceita a mensagem
+        status_code = 203
+        text = "<p>Message to: +5511999998888<p>Text to send: *Pre%C3%A7o caiu*<p>Message queued."
 
     monkeypatch.setattr(requests, "get", lambda url, params, timeout: calls.append((url, params)) or Resp())
     cfg = Config(data_dir=tmp_path, report_path=tmp_path / "x.html", delay=0, modes=["cash"],
@@ -179,3 +179,6 @@ def test_whatsapp_alert(monkeypatch, tmp_path):
     url, params = calls[0]
     assert url.endswith("/whatsapp.php") and params["phone"] == "5511999998888" and params["apikey"] == "123456"
     assert params["text"].startswith("*Preço caiu*\n")
+
+    Resp.text = "<p>APIKey is invalid. Please check the APIKey.</p>"
+    assert not notify(cfg, "Preço caiu", text)
