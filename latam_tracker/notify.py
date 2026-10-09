@@ -19,7 +19,9 @@ def send_whatsapp(config: Config, text: str) -> bool:
 
     phone = "".join(ch for ch in config.whatsapp_phone if ch.isdigit())
     try:
-        r = requests.get(CALLMEBOT_URL, params={"phone": phone, "text": text, "apikey": config.whatsapp_apikey},
+        # Formato da documentação do CallMeBot: DDI com "+" (ex.: +5511999998888). A apikey vai sem espaços.
+        r = requests.get(CALLMEBOT_URL, params={"phone": "+" + phone, "text": text,
+                                                "apikey": config.whatsapp_apikey.strip()},
                          timeout=30)
     except requests.RequestException as exc:
         log.warning("Falha ao enviar WhatsApp: %s", exc)

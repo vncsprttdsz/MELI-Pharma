@@ -177,7 +177,7 @@ def test_whatsapp_alert(monkeypatch, tmp_path):
     assert "Voo ideal (qui 01/04 → sáb 10/04): R$ 6.100" in text and text.endswith("/flights/latam.html")
     assert notify(cfg, "Preço caiu", text)
     url, params = calls[0]
-    assert url.endswith("/whatsapp.php") and params["phone"] == "5511999998888" and params["apikey"] == "123456"
+    assert url.endswith("/whatsapp.php") and params["phone"] == "+5511999998888" and params["apikey"] == "123456"
     assert params["text"].startswith("*Preço caiu*\n")
 
     Resp.text = "<p>APIKey is invalid. Please check the APIKey.</p>"
