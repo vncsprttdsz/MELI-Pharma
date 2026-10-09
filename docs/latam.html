@@ -3,84 +3,310 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LATAM GRU ⇄ LAX</title>
+<title>São Paulo ⇄ Los Angeles</title>
 <style>
-:root { --bg:#f7f7f5; --card:#fff; --fg:#1d1d1f; --muted:#6b6b70; --line:#e3e3e0; --accent:#c8102e; --good:#1a7f37; --badge-bg:#e7f5ec; --ideal:#b7791f; --ideal-bg:#fdf6e3; --up:#c8102e; }
-@media (prefers-color-scheme: dark) { :root { --bg:#151517; --card:#1f1f22; --fg:#ececee; --muted:#9a9aa1; --line:#333338; --accent:#ff5a6e; --good:#4ac26b; --badge-bg:#1d3325; --ideal:#e3b341; --ideal-bg:#2b2412; --up:#ff7b72; } }
-* { box-sizing:border-box; }
-body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-main { max-width:1000px; margin:0 auto; padding:24px 16px 48px; }
-h1 { margin:0 0 4px; font-size:24px; } h2 { font-size:17px; margin:0 0 12px; }
-.lead { color:var(--muted); margin:0 0 4px; }
-section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:16px; }
-.scroll { overflow-x:auto; }
-table { border-collapse:collapse; width:100%; }
-th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; white-space:nowrap; }
-th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600; }
-.sub { color:var(--muted); font-size:12px; } .muted { color:var(--muted); }
-.badge { background:var(--badge-bg); color:var(--good); border-radius:6px; padding:1px 6px; font-size:11px; font-weight:600; margin-left:4px; }
-tr.ideal td { background:var(--ideal-bg); }
-tr.ideal td:first-child { box-shadow: inset 3px 0 0 var(--ideal); }
-.tag { background:var(--ideal); color:#fff; border-radius:6px; padding:1px 6px; font-size:11px; font-weight:600; margin-left:4px; }
-.hero { border:2px solid var(--ideal); background:var(--ideal-bg); }
-.hero-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:16px; }
-.hero .big { font-size:30px; font-weight:700; line-height:1.2; margin:2px 0; }
-.hero .fact { font-size:13px; margin-top:4px; }
-.down { color:var(--good); font-weight:600; } .up { color:var(--up); font-weight:600; }
-.alerts { margin:12px 0 0; padding:12px 16px 12px 32px; background:var(--card); border:1px solid var(--accent); border-radius:12px; }
-.charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr)); gap:16px; }
-.chart { position:relative; height:280px; }
+:root {
+  color-scheme: light;
+  --page: #f4f3ef; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #7a7873;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --accent: #2a78d6; --accent-wash: #eaf2fc; --accent-ink: #1c5cab;
+  --good: #006300; --good-wash: #e6f3e6; --bad: #b42d2d; --bad-wash: #fbeaea; --warn-wash: #fff6e0;
+  --shadow: 0 1px 2px rgba(11,11,11,.04), 0 8px 24px rgba(11,11,11,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #9a998f;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --accent: #3987e5; --accent-wash: #16263a; --accent-ink: #86b6ef;
+    --good: #0ca30c; --good-wash: #12260f; --bad: #e66767; --bad-wash: #2e1616; --warn-wash: #2a2210;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #9a998f;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --accent: #3987e5; --accent-wash: #16263a; --accent-ink: #86b6ef;
+  --good: #0ca30c; --good-wash: #12260f; --bad: #e66767; --bad-wash: #2e1616; --warn-wash: #2a2210;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 56px; }
+header { margin-bottom: 20px; }
+.kicker { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); }
+h1 { margin: 6px 0 12px; font-size: clamp(24px, 4vw, 34px); line-height: 1.15; letter-spacing: -.01em; }
+.code { font-size: .55em; font-weight: 600; color: var(--muted); letter-spacing: .04em; vertical-align: .35em; }
+.metas { display: flex; flex-wrap: wrap; gap: 6px; }
+.meta { font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 10px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+  margin-top: 16px; box-shadow: var(--shadow); }
+h2 { font-size: 16px; margin: 0 0 14px; }
+.sub { color: var(--muted); font-size: 12.5px; } .muted { color: var(--muted); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* voo ideal */
+.hero { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: linear-gradient(135deg, var(--accent-wash), var(--surface) 70%); }
+@media (max-width: 680px) { .hero { grid-template-columns: 1fr; } }
+.eyebrow { font-size: 12.5px; font-weight: 600; color: var(--accent-ink); }
+.hero-title { font-size: 18px; margin: 4px 0 6px; font-weight: 600; color: var(--ink-2); }
+.hero-price { font-size: clamp(40px, 7vw, 56px); font-weight: 700; letter-spacing: -.02em; line-height: 1.05; margin-bottom: 10px; }
+.hero-tax { font-size: 18px; font-weight: 600; color: var(--ink-2); margin-left: 6px; }
+.pill { display: inline-block; font-size: 13px; font-weight: 600; border-radius: 999px; padding: 3px 10px; }
+.pill.down { color: var(--good); background: var(--good-wash); }
+.pill.up { color: var(--bad); background: var(--bad-wash); }
+.pill.flat { color: var(--ink-2); background: var(--page); }
+.facts { list-style: none; padding: 0; margin: 12px 0 0; font-size: 13.5px; color: var(--ink-2); }
+.facts li { padding: 2px 0; } .facts b { color: var(--ink); }
+.hero-legs { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.leg { display: grid; grid-template-columns: 1fr auto; row-gap: 2px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.leg-k { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.leg-v { font-size: 17px; font-weight: 700; text-align: right; grid-row: span 2; align-self: center; font-variant-numeric: tabular-nums; }
+
+/* alertas */
+.alerts { background: var(--warn-wash); }
+.alerts ul { margin: 0; padding-left: 20px; } .alerts li { margin: 2px 0; }
+
+/* gráfico */
+.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 8px; }
+.card-head h2 { margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 13px; color: var(--ink-2); background: transparent; border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.chip:hover { background: var(--page); }
+.chip[aria-pressed="true"] { color: var(--ink); background: var(--page); border-color: var(--axis); font-weight: 600; }
+.chip[aria-pressed="false"] .key { opacity: .35; }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.key { width: 16px; height: 0; border-top: 3px solid; border-radius: 2px; }
+.key.dash { border-top-style: dashed; }
+.s1 { color: var(--s1); } .s2 { color: var(--s2); } .s3 { color: var(--s3); } .s4 { color: var(--s4); }
+.chart { position: relative; height: 300px; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart .tick { font-size: 11.5px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .endlabel { font-size: 12px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.14);
+  min-width: 170px; opacity: 0; transition: opacity .1s; z-index: 2; }
+.tip .t { color: var(--muted); margin-bottom: 4px; }
+.tip .r { display: grid; grid-template-columns: 14px auto 1fr; gap: 8px; align-items: center; }
+.tip .r b { font-variant-numeric: tabular-nums; }
+.tip .r span:last-child { color: var(--ink-2); }
+.empty { display: grid; place-items: center; height: 100%; color: var(--muted); font-size: 14px; }
+
+/* tabelas */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; white-space: nowrap; }
+th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+th.num, td.num { text-align: right; }
+tbody tr:last-child td { border-bottom: 0; }
+tr.ideal td { background: var(--accent-wash); }
+tr.ideal td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.tag { font-size: 11px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+.badge { font-size: 11px; font-weight: 700; color: var(--good); background: var(--good-wash); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+@media (max-width: 560px) {
+  .card { padding: 16px; border-radius: 14px; }
+  th, td { padding: 8px 6px; }
+  .hide-sm, td.num .sub { display: none; }
+}
+footer { margin-top: 28px; font-size: 12.5px; color: var(--muted); }
+footer a { color: inherit; }
 </style>
 </head>
 <body>
 <main>
-<h1>LATAM GRU ⇄ LAX</h1>
-<p class="lead">Voos diretos · ida qui 01/04 e volta sáb 10/04 (±1 dia) · 1 adulto(s) · Economy</p>
-<p class="lead">Última consulta: <b>08/10 20:17</b> (Brasília) · 4 consultas registradas</p>
-
-<section class='hero'><h2>⭐ Voo ideal: ida qui 01/04 + volta sáb 10/04</h2><div class='hero-grid'><div class='hero-item'><div class='sub'>Dinheiro · ida + volta</div><div class='big'>R$ 6.350</div><div class='sub'>LA8086 / LA8087</div><div class='fact'><span class='up'>▲ R$ 3</span> desde a consulta anterior</div><div class='fact'>mínimo: R$ 6.332 em 07/10 20:45</div><div class='fact'>empatado com a combinação mais barata</div></div></div></section>
-<section>
-<h2>Melhor tarifa direta por data (última consulta)</h2>
-<div class="scroll"><table><thead><tr><th>Trecho</th><th>Data</th><th>Dinheiro</th></tr></thead><tbody><tr><td>ida GRU→LAX</td><td>qua 31/03</td><td><b>R$ 4.104</b><div class="sub">LA8086 · Google Flights · 23:15</div></td></tr><tr class=ideal><td>ida GRU→LAX</td><td>qui 01/04 <span class="tag">ideal</span></td><td><b>R$ 4.104</b><div class="sub">LA8086 · Google Flights · 23:15</div></td></tr><tr><td>ida GRU→LAX</td><td>sex 02/04</td><td><b>R$ 4.603</b><div class="sub">LA8086 · Google Flights · 23:15</div></td></tr><tr><td>volta LAX→GRU</td><td>sex 09/04</td><td><b>R$ 2.246</b><div class="sub">LA8087 · Google Flights · 13:55</div></td></tr><tr class=ideal><td>volta LAX→GRU</td><td>sáb 10/04 <span class="tag">ideal</span></td><td><b>R$ 2.246</b><div class="sub">LA8087 · Google Flights · 13:55</div></td></tr><tr><td>volta LAX→GRU</td><td>dom 11/04</td><td class="muted">sem oferta</td></tr></tbody></table></div>
-<p class="sub">Preço por pessoa, só ida, tarifa mais barata entre as marcas (Light, Standard...). "mínimo" = menor valor já registrado para essa data.</p>
+<header>
+  <div class="kicker">Monitor de preços · LATAM</div>
+  <h1>São Paulo <span class='code'>GRU</span> ⇄ Los Angeles <span class='code'>LAX</span></h1>
+  <div class="metas"><span class='meta'>LATAM · voos diretos</span><span class='meta'>1 adulto · Econômica</span><span class='meta'>Datas ±1 dia</span><span class='meta'>Atualizado 09/10 09:19</span><span class='meta'>5 consultas</span></div>
+</header>
+<section class='card alerts'><h2>Novidades da última consulta</h2><ul><li>🏆 volta sex 09/04 (dinheiro): menor preço já visto, R$ 2.238</li><li>🏆 volta sáb 10/04 (dinheiro): menor preço já visto, R$ 2.238</li></ul></section>
+<section class='card hero'><div class='hero-main'><div class='eyebrow'>⭐ Voo ideal · Dinheiro · por pessoa</div><h2 class='hero-title'>qui 01/04 → sáb 10/04</h2><div class='hero-price'>R$ 6.357<span class='hero-tax'></span></div><span class='pill up'>▲ R$ 7 mais caro que a consulta anterior</span><ul class='facts'><li>Mínimo registrado: <b>R$ 6.332</b> (07/10 20:45)</li><li>Empatado com a combinação mais barata</li></ul></div><div class='hero-legs'><div class='leg'><span class='leg-k'>Ida · qui 01/04</span><span class='leg-v'>R$ 4.119</span><span class='sub'>LA8086 · 23:15 → 07:30</span></div><div class='leg'><span class='leg-k'>Volta · sáb 10/04</span><span class='leg-v'>R$ 2.238</span><span class='sub'>LA8087 · 13:55 → 05:30</span></div></div></section><section class='card'><div class='card-head'><h2>Histórico de preços · Dinheiro</h2><div class='chips' role='group' aria-label='Séries do gráfico'><button type='button' class='chip' data-key='ideal|cash' aria-pressed='true'><span class='key s1'></span>Total ida + volta</button><button type='button' class='chip' data-key='ida|2027-04-01|cash' aria-pressed='false'><span class='key s2'></span>Ida qui 01/04</button><button type='button' class='chip' data-key='volta|2027-04-10|cash' aria-pressed='false'><span class='key s3'></span>Volta sáb 10/04</button><button type='button' class='chip' data-key='cash' aria-pressed='false'><span class='key s4 dash'></span>Melhor combinação (qualquer data)</button></div></div><div class='chart' data-mode='cash'></div><p class='sub'>Cada ponto é uma consulta. Passe o mouse (ou toque) para ver os valores.</p></section>
+<section class='card'><h2>Combinações ida + volta · Dinheiro</h2><div class='scroll'><table><thead><tr><th>Ida</th><th>Volta</th><th class='num hide-sm'>Noites</th><th class='num'>Total</th><th class='hide-sm'>Voos</th></tr></thead><tbody><tr class=ideal><td>qui 01/04</td><td>sáb 10/04 <span class='tag'>ideal</span></td><td class='num hide-sm'>9</td><td class='num'><b>R$ 6.357</b></td><td class='sub hide-sm'>LA8086 / LA8087</td></tr><tr><td>qua 31/03</td><td>sex 09/04</td><td class='num hide-sm'>9</td><td class='num'><b>R$ 6.357</b></td><td class='sub hide-sm'>LA8086 / LA8087</td></tr><tr><td>qua 31/03</td><td>sáb 10/04</td><td class='num hide-sm'>10</td><td class='num'><b>R$ 6.357</b></td><td class='sub hide-sm'>LA8086 / LA8087</td></tr><tr><td>qui 01/04</td><td>sex 09/04</td><td class='num hide-sm'>8</td><td class='num'><b>R$ 6.357</b></td><td class='sub hide-sm'>LA8086 / LA8087</td></tr><tr><td>sex 02/04</td><td>sex 09/04</td><td class='num hide-sm'>7</td><td class='num'><b>R$ 6.858</b></td><td class='sub hide-sm'>LA8086 / LA8087</td></tr><tr><td>sex 02/04</td><td>sáb 10/04</td><td class='num hide-sm'>8</td><td class='num'><b>R$ 6.858</b></td><td class='sub hide-sm'>LA8086 / LA8087</td></tr></tbody></table></div></section>
+<section class="card">
+  <h2>Melhor tarifa por data</h2>
+  <div class="scroll"><table><thead><tr><th>Trecho</th><th>Data</th><th class='num'>Dinheiro</th></tr></thead><tbody><tr><td>Ida<div class='sub'>GRU → LAX</div></td><td>qua 31/03</td><td class='num'><b>R$ 4.119</b><div class='sub'>LA8086 · 23:15 → 07:30</div></td></tr><tr class=ideal><td>Ida<div class='sub'>GRU → LAX</div></td><td>qui 01/04 <span class='tag'>ideal</span></td><td class='num'><b>R$ 4.119</b><div class='sub'>LA8086 · 23:15 → 07:30</div></td></tr><tr><td>Ida<div class='sub'>GRU → LAX</div></td><td>sex 02/04</td><td class='num'><b>R$ 4.620</b><div class='sub'>LA8086 · 23:15 → 07:30</div></td></tr><tr><td>Volta<div class='sub'>LAX → GRU</div></td><td>sex 09/04</td><td class='num'><b>R$ 2.238</b> <span class='badge'>mínimo</span><div class='sub'>LA8087 · 13:55 → 05:30</div></td></tr><tr class=ideal><td>Volta<div class='sub'>LAX → GRU</div></td><td>sáb 10/04 <span class='tag'>ideal</span></td><td class='num'><b>R$ 2.238</b> <span class='badge'>mínimo</span><div class='sub'>LA8087 · 13:55 → 05:30</div></td></tr><tr><td>Volta<div class='sub'>LAX → GRU</div></td><td>dom 11/04</td><td class='num muted'>sem oferta</td></tr></tbody></table></div>
+  <p class="sub">Por pessoa, só ida. "mínimo" = menor valor já registrado para a data.</p>
 </section>
-<section><h2>Ida + volta — Dinheiro</h2><div class='scroll'><table><thead><tr><th>Ida</th><th>Volta</th><th>Noites</th><th>Total</th><th>Voos</th></tr></thead><tbody><tr class=ideal><td>qui 01/04</td><td>sáb 10/04 <span class="tag">ideal</span></td><td>9</td><td><b>R$ 6.350</b></td><td class='sub'>LA8086 / LA8087</td></tr><tr><td>qua 31/03</td><td>sex 09/04</td><td>9</td><td><b>R$ 6.350</b></td><td class='sub'>LA8086 / LA8087</td></tr><tr><td>qua 31/03</td><td>sáb 10/04</td><td>10</td><td><b>R$ 6.350</b></td><td class='sub'>LA8086 / LA8087</td></tr><tr><td>qui 01/04</td><td>sex 09/04</td><td>8</td><td><b>R$ 6.350</b></td><td class='sub'>LA8086 / LA8087</td></tr><tr><td>sex 02/04</td><td>sex 09/04</td><td>7</td><td><b>R$ 6.849</b></td><td class='sub'>LA8086 / LA8087</td></tr><tr><td>sex 02/04</td><td>sáb 10/04</td><td>8</td><td><b>R$ 6.849</b></td><td class='sub'>LA8086 / LA8087</td></tr></tbody></table></div></section>
-<section>
-<h2>Histórico</h2>
-<div class="charts">
-<div><h2 class="sub">Dinheiro (R$)</h2><div class="chart"><canvas id="c-cash"></canvas></div></div>
-</div>
-</section>
+<footer>Preços em dinheiro: Google Flights (tarifa da LATAM), consultados 4x por dia. Combinações ida + volta são a soma de dois trechos só de ida.</footer>
 </main>
-<script id="data" type="application/json">{"history": [{"t": "2026-10-07T23:45Z", "label": "07/10 20:45", "cash": 6332.0, "ideal|cash": 6332.0, "ida|2027-03-31|cash": 4085.0, "ida|2027-04-01|cash": 4085.0, "ida|2027-04-02|cash": 4582.0, "volta|2027-04-09|cash": 2247.0, "volta|2027-04-10|cash": 2247.0}, {"t": "2026-10-08T01:56Z", "label": "07/10 22:56", "cash": 6332.0, "ideal|cash": 6332.0, "ida|2027-03-31|cash": 4085.0, "ida|2027-04-01|cash": 4085.0, "ida|2027-04-02|cash": 4582.0, "volta|2027-04-09|cash": 2247.0, "volta|2027-04-10|cash": 2247.0}, {"t": "2026-10-08T15:32Z", "label": "08/10 12:32", "cash": 6347.0, "ideal|cash": 6347.0, "ida|2027-03-31|cash": 4104.0, "ida|2027-04-01|cash": 4104.0, "ida|2027-04-02|cash": 4603.0, "volta|2027-04-09|cash": 2243.0, "volta|2027-04-10|cash": 2243.0}, {"t": "2026-10-08T23:17Z", "label": "08/10 20:17", "cash": 6350.0, "ideal|cash": 6350.0, "ida|2027-03-31|cash": 4104.0, "ida|2027-04-01|cash": 4104.0, "ida|2027-04-02|cash": 4603.0, "volta|2027-04-09|cash": 2246.0, "volta|2027-04-10|cash": 2246.0}], "modes": ["cash"], "idealLabel": "Voo ideal (qui 01/04 + sáb 10/04)", "series": ["ida|2027-03-31|cash", "ida|2027-04-01|cash", "ida|2027-04-02|cash", "volta|2027-04-09|cash", "volta|2027-04-10|cash", "volta|2027-04-11|cash"], "labels": {"ida|2027-03-31": "ida qua 31/03", "ida|2027-04-01": "ida qui 01/04", "ida|2027-04-02": "ida sex 02/04", "volta|2027-04-09": "volta sex 09/04", "volta|2027-04-10": "volta sáb 10/04", "volta|2027-04-11": "volta dom 11/04"}}</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script id="data" type="application/json">{"history": [{"t": "2026-10-07T23:45Z", "label": "07/10 20:45", "cash": 6332.0, "ideal|cash": 6332.0, "ida|2027-03-31|cash": 4085.0, "ida|2027-04-01|cash": 4085.0, "ida|2027-04-02|cash": 4582.0, "volta|2027-04-09|cash": 2247.0, "volta|2027-04-10|cash": 2247.0}, {"t": "2026-10-08T01:56Z", "label": "07/10 22:56", "cash": 6332.0, "ideal|cash": 6332.0, "ida|2027-03-31|cash": 4085.0, "ida|2027-04-01|cash": 4085.0, "ida|2027-04-02|cash": 4582.0, "volta|2027-04-09|cash": 2247.0, "volta|2027-04-10|cash": 2247.0}, {"t": "2026-10-08T15:32Z", "label": "08/10 12:32", "cash": 6347.0, "ideal|cash": 6347.0, "ida|2027-03-31|cash": 4104.0, "ida|2027-04-01|cash": 4104.0, "ida|2027-04-02|cash": 4603.0, "volta|2027-04-09|cash": 2243.0, "volta|2027-04-10|cash": 2243.0}, {"t": "2026-10-08T23:17Z", "label": "08/10 20:17", "cash": 6350.0, "ideal|cash": 6350.0, "ida|2027-03-31|cash": 4104.0, "ida|2027-04-01|cash": 4104.0, "ida|2027-04-02|cash": 4603.0, "volta|2027-04-09|cash": 2246.0, "volta|2027-04-10|cash": 2246.0}, {"t": "2026-10-09T12:19Z", "label": "09/10 09:19", "cash": 6357.0, "ideal|cash": 6357.0, "ida|2027-03-31|cash": 4119.0, "ida|2027-04-01|cash": 4119.0, "ida|2027-04-02|cash": 4620.0, "volta|2027-04-09|cash": 2238.0, "volta|2027-04-10|cash": 2238.0}], "series": {"cash": [{"key": "ideal|cash", "label": "Total ida + volta", "slot": 1, "on": true}, {"key": "ida|2027-04-01|cash", "label": "Ida qui 01/04", "slot": 2, "on": false}, {"key": "volta|2027-04-10|cash", "label": "Volta sáb 10/04", "slot": 3, "on": false}, {"key": "cash", "label": "Melhor combinação (qualquer data)", "slot": 4, "on": false, "dash": true}]}, "units": {"cash": "R$"}}</script>
 <script>
 (function () {
-  if (!window.Chart) return;
-  var d = JSON.parse(document.getElementById("data").textContent);
-  var css = getComputedStyle(document.documentElement);
-  var fg = css.getPropertyValue("--muted").trim(), grid = css.getPropertyValue("--line").trim();
-  var palette = ["#2b6cb0", "#c8102e", "#2f855a", "#b7791f", "#6b46c1", "#0f766e"];
-  var labels = d.history.map(function (h) { return h.label; });
-  d.modes.forEach(function (mode) {
-    var el = document.getElementById("c-" + mode);
-    if (!el) return;
-    var ideal = css.getPropertyValue("--ideal").trim();
-    var sets = [{ label: d.idealLabel, data: d.history.map(function (h) { return h["ideal|" + mode]; }),
-                  borderColor: ideal, backgroundColor: ideal, borderWidth: 4, pointRadius: 2, spanGaps: true },
-                { label: "Melhor ida+volta", data: d.history.map(function (h) { return h[mode]; }),
-                  borderColor: fg, borderWidth: 2, borderDash: [2, 2], pointRadius: 0, spanGaps: true }];
-    d.series.filter(function (s) { return s.endsWith("|" + mode); }).forEach(function (s, i) {
-      var key = s.split("|").slice(0, 2).join("|");
-      sets.push({ label: d.labels[key], data: d.history.map(function (h) { return h[s] == null ? null : h[s]; }),
-                  borderColor: palette[i % palette.length], borderWidth: 1.5, pointRadius: 0, spanGaps: true,
-                  borderDash: s.indexOf("volta") === 0 ? [5, 3] : [] });
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var NS = "http://www.w3.org/2000/svg";
+  var STORE = "latam-chart-series";
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORE) || "{}") || {}; } catch (e) { saved = {}; }
+
+  function el(name, attrs, parent) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function parseT(s) { return Date.parse(s.replace(/Z$/, ":00Z")); }
+  function fmt(v, unit) {
+    var n = Math.round(v).toLocaleString("pt-BR");
+    return unit === "pts" ? n + " pts" : "R$ " + n;
+  }
+  function niceStep(span, count) {
+    var raw = span / count, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
+  }
+  function color(slot) { return getComputedStyle(document.documentElement).getPropertyValue("--s" + slot).trim(); }
+
+  document.querySelectorAll(".chart").forEach(function (box) {
+    var mode = box.dataset.mode, series = D.series[mode], unit = D.units[mode];
+    var card = box.closest(".card"), chips = card.querySelectorAll(".chip");
+    var on = {};
+    series.forEach(function (s) { on[s.key] = saved[s.key] !== undefined ? saved[s.key] : s.on; });
+    chips.forEach(function (c) {
+      c.setAttribute("aria-pressed", String(!!on[c.dataset.key]));
+      c.addEventListener("click", function () {
+        on[c.dataset.key] = !on[c.dataset.key];
+        if (!series.some(function (s) { return on[s.key]; })) on[c.dataset.key] = true; // sempre ao menos uma série
+        c.setAttribute("aria-pressed", String(!!on[c.dataset.key]));
+        series.forEach(function (s) { saved[s.key] = on[s.key]; });
+        try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch (e) {}
+        draw();
+      });
     });
-    new Chart(el, { type: "line", data: { labels: labels, datasets: sets },
-      options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-        plugins: { legend: { labels: { color: fg, boxWidth: 12 } } },
-        scales: { x: { ticks: { color: fg, maxTicksLimit: 8 }, grid: { color: grid } },
-                  y: { ticks: { color: fg, callback: function (v) { return v.toLocaleString("pt-BR"); } }, grid: { color: grid } } } } });
+    var tip = document.createElement("div");
+    tip.className = "tip";
+    tip.setAttribute("role", "status");
+
+    function draw() {
+      box.textContent = "";
+      var vis = series.filter(function (s) { return on[s.key]; });
+      var pts = D.history.map(function (h) { return { t: parseT(h.t), label: h.label, h: h }; });
+      var vals = [];
+      vis.forEach(function (s) { pts.forEach(function (p) { var v = p.h[s.key]; if (v != null) vals.push(v); }); });
+      if (!vals.length) {
+        var e = document.createElement("div"); e.className = "empty";
+        e.textContent = "Ainda sem dados para as séries escolhidas."; box.appendChild(e); return;
+      }
+      var W = box.clientWidth, H = box.clientHeight, m = { l: 64, r: 78, t: 12, b: 28 };
+      if (W < 480) m.r = 12;
+      var iw = W - m.l - m.r, ih = H - m.t - m.b;
+      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+      var pad = Math.max((hi - lo) * 0.12, hi * 0.015);
+      lo -= pad; hi += pad;
+      var step = niceStep(hi - lo, 5);
+      lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+      var t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+      if (t1 === t0) { t0 -= 3600e3; t1 += 3600e3; }
+      var x = function (t) { return m.l + (t - t0) / (t1 - t0) * iw; };
+      var y = function (v) { return m.t + (1 - (v - lo) / (hi - lo)) * ih; };
+      var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+        "aria-label": "Histórico de preços: " + vis.map(function (s) { return s.label; }).join(", ") }, box);
+      for (var v = lo; v <= hi + step / 2; v += step) {
+        el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: "var(--grid)", "stroke-width": 1 }, svg);
+        var tl = el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end", "class": "tick" }, svg);
+        tl.textContent = fmt(v, unit);
+      }
+      el("line", { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, stroke: "var(--axis)", "stroke-width": 1 }, svg);
+      // rótulos de data: no máximo ~6, um por dia
+      var days = [], seen = {};
+      pts.forEach(function (p) { var dlab = p.label.slice(0, 5); if (!seen[dlab]) { seen[dlab] = 1; days.push(p); } });
+      var every = Math.max(1, Math.ceil(days.length / Math.max(2, Math.floor(iw / 70))));
+      days.forEach(function (p, i) {
+        if (i % every) return;
+        var tx = el("text", { x: x(p.t), y: H - 8, "text-anchor": "middle", "class": "tick" }, svg);
+        tx.textContent = p.label.slice(0, 5);
+      });
+      var endLabels = [];
+      vis.forEach(function (s) {
+        var c = color(s.slot), path = "", pen = false, last = null;
+        pts.forEach(function (p) {
+          var val = p.h[s.key];
+          if (val == null) { pen = false; return; }
+          path += (pen ? "L" : "M") + x(p.t).toFixed(1) + "," + y(val).toFixed(1);
+          pen = true; last = { p: p, v: val };
+        });
+        el("path", { d: path, fill: "none", stroke: c, "stroke-width": s.slot === 1 ? 2.5 : 2,
+          "stroke-linejoin": "round", "stroke-linecap": "round", "stroke-dasharray": s.dash ? "5 4" : "none" }, svg);
+        pts.forEach(function (p) {
+          var val = p.h[s.key];
+          if (val == null || pts.length > 40) return;
+          el("circle", { cx: x(p.t), cy: y(val), r: 3, fill: c, stroke: "var(--surface)", "stroke-width": 1.5 }, svg);
+        });
+        if (last) {
+          el("circle", { cx: x(last.p.t), cy: y(last.v), r: 5, fill: c, stroke: "var(--surface)", "stroke-width": 2 }, svg);
+          endLabels.push({ y: y(last.v), x: x(last.p.t), text: fmt(last.v, unit) });
+        }
+      });
+      if (m.r > 20) {
+        endLabels.sort(function (a, b) { return a.y - b.y; });
+        for (var i = 1; i < endLabels.length; i++) if (endLabels[i].y - endLabels[i - 1].y < 15) endLabels[i].y = endLabels[i - 1].y + 15;
+        endLabels.forEach(function (l) {
+          var t = el("text", { x: l.x + 10, y: l.y + 4, "class": "endlabel" }, svg); t.textContent = l.text;
+        });
+      }
+      // crosshair + tooltip
+      var cross = el("line", { y1: m.t, y2: m.t + ih, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" }, svg);
+      var dots = vis.map(function (s) {
+        return el("circle", { r: 5, fill: color(s.slot), stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg);
+      });
+      var hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent", tabindex: 0,
+        "aria-label": "Mova para ver os preços de cada consulta" }, svg);
+      box.appendChild(tip);
+      var idx = pts.length - 1;
+      function show(i) {
+        idx = Math.max(0, Math.min(pts.length - 1, i));
+        var p = pts[idx], px = x(p.t);
+        cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
+        tip.textContent = "";
+        var head = document.createElement("div"); head.className = "t"; head.textContent = p.label + " (Brasília)"; tip.appendChild(head);
+        vis.forEach(function (s, k) {
+          var val = p.h[s.key];
+          dots[k].setAttribute("visibility", val == null ? "hidden" : "visible");
+          if (val != null) { dots[k].setAttribute("cx", px); dots[k].setAttribute("cy", y(val)); }
+          var r = document.createElement("div"); r.className = "r";
+          var key = document.createElement("span"); key.className = "key s" + s.slot + (s.dash ? " dash" : "");
+          var b = document.createElement("b"); b.textContent = val == null ? "—" : fmt(val, unit);
+          var lab = document.createElement("span"); lab.textContent = s.label;
+          r.appendChild(key); r.appendChild(b); r.appendChild(lab); tip.appendChild(r);
+        });
+        tip.style.opacity = 1;
+        var tw = tip.offsetWidth, left = px + 14;
+        if (left + tw > W) left = px - tw - 14;
+        tip.style.left = Math.max(0, left) + "px"; tip.style.top = m.t + "px";
+      }
+      function hide() {
+        tip.style.opacity = 0; cross.setAttribute("visibility", "hidden");
+        dots.forEach(function (dd) { dd.setAttribute("visibility", "hidden"); });
+      }
+      function nearest(evt) {
+        var r = svg.getBoundingClientRect(), mx = (evt.clientX - r.left) * (W / r.width), best = 0, bd = Infinity;
+        pts.forEach(function (p, i) { var dd = Math.abs(x(p.t) - mx); if (dd < bd) { bd = dd; best = i; } });
+        return best;
+      }
+      hit.addEventListener("pointermove", function (e) { show(nearest(e)); });
+      hit.addEventListener("pointerdown", function (e) { show(nearest(e)); });
+      hit.addEventListener("pointerleave", hide);
+      hit.addEventListener("focus", function () { show(idx); });
+      hit.addEventListener("blur", hide);
+      hit.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowLeft") { show(idx - 1); e.preventDefault(); }
+        if (e.key === "ArrowRight") { show(idx + 1); e.preventDefault(); }
+      });
+    }
+    draw();
+    var rt, lastW = box.clientWidth;
+    window.addEventListener("resize", function () {
+      clearTimeout(rt);
+      rt = setTimeout(function () { if (box.clientWidth !== lastW) { lastW = box.clientWidth; draw(); } }, 120);
+    });
   });
 })();
 </script>
