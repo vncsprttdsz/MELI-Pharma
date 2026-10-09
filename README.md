@@ -23,6 +23,7 @@ python -m latam_tracker diagnose                         # 1 busca (ida 01/04) n
 python -m latam_tracker diagnose --back --date 2027-04-11
 python -m latam_tracker run                              # consulta tudo, grava histórico, gera docs/latam.html
 python -m latam_tracker summary                          # resumo em Markdown da última consulta
+python -m latam_tracker test-notify                      # mensagem de teste no WhatsApp/ntfy
 ```
 
 `run` sai com código 3 quando parte das buscas falhou (o resto é salvo).
@@ -34,12 +35,26 @@ python -m latam_tracker summary                          # resumo em Markdown da
 opção "Só diagnosticar"). `.github/workflows/latam-probe.yml` testa as formas de acesso ao site da LATAM
 (Chromium, Chrome, Patchright, Camoufox, API); em 07/10/2026 todas receberam 403.
 
-## Alertas no celular
+## Alertas no WhatsApp
 
-Instale o app **ntfy** (Android/iOS), assine um tópico com nome difícil de adivinhar (ex.:
-`latam-lax-8f3k2`) e crie o secret `LATAM_NTFY_TOPIC` com esse nome (ou exporte a variável no cron local).
-Você recebe um aviso quando o preço de uma data cai mais de `LATAM_ALERT_DROP_PCT` (3%) em relação à
-consulta anterior ou atinge o menor valor já registrado.
+Quando o preço cai, o tracker manda uma mensagem para o seu WhatsApp pelo
+[CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/), que é gratuito e só envia para o seu
+próprio número. Ele avisa quando:
+
+- o **voo ideal** (ida + volta nas datas centrais) cai mais de `LATAM_ALERT_DROP_PCT` (3%) desde a consulta anterior;
+- o preço de alguma data cai mais de 3% ou atinge o menor valor já registrado.
+
+Configuração (uma vez):
+
+1. Salve o número do bot do CallMeBot nos contatos (confira o número atual no site, ele muda de vez em quando) e
+   mande para ele pelo WhatsApp: `I allow callmebot to send me messages`.
+2. Ele responde com a sua **apikey**.
+3. No GitHub: **Settings → Secrets and variables → Actions → New repository secret**:
+   - `LATAM_WHATSAPP_PHONE`: seu número com DDI e DDD, ex.: `5511999998888`
+   - `LATAM_WHATSAPP_APIKEY`: a apikey recebida
+4. Teste em **Actions → Preços LATAM GRU-LAX → Run workflow**, marcando "Só enviar uma mensagem de teste".
+
+Também dá para receber pelo app **ntfy** (secret `LATAM_NTFY_TOPIC`), sozinho ou junto com o WhatsApp.
 
 ## Dados
 
@@ -47,7 +62,7 @@ consulta anterior ou atinge o menor valor já registrado.
 |---|---|
 | `data/latam/quotes.csv` | uma linha por consulta × trecho × data × modo × voo direto × tarifa (Light, Standard...) |
 | `data/latam/searches.csv` | uma linha por busca: `ok`, `no_direct` (só voos com escala), `no_offers` ou `error` |
-| `docs/latam.html` | dashboard: melhor tarifa por data, ranking ida+volta e gráfico do histórico |
+| `docs/latam.html` | dashboard: voo ideal, gráfico do histórico (total por padrão; ida, volta e melhor combinação no seletor), combinações e tarifas por data |
 
 Para ver o dashboard no navegador: **Settings → Pages → Deploy from a branch →
 `claude/meli-farma-scraping-monitor-xjxte3` / `docs`**. Ele fica em
@@ -72,7 +87,9 @@ Para ver o dashboard no navegador: **Settings → Pages → Deploy from a branch
 | `LATAM_HEADLESS` | `1` | `0` abre a janela do navegador |
 | `LATAM_BROWSER_PATH` | — | Chrome/Chromium já instalado |
 | `LATAM_DEBUG_DIR` | — | salva o JSON/HTML de cada busca |
+| `LATAM_WHATSAPP_PHONE` / `LATAM_WHATSAPP_APIKEY` | — | WhatsApp via CallMeBot |
 | `LATAM_NTFY_TOPIC` | — | tópico do ntfy para alertas |
+| `LATAM_DASHBOARD_URL` | página do GitHub Pages | link enviado nos avisos |
 | `LATAM_ALERT_DROP_PCT` | `3` | queda mínima (%) para alertar |
 
 ## Limitações

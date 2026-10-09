@@ -39,6 +39,9 @@ class Config:
     report_path: Path = Path("docs/latam.html")
     debug_dir: Path | None = None
     ntfy_topic: str = ""
+    whatsapp_phone: str = ""  # CallMeBot: número com DDI, ex.: 5511999998888
+    whatsapp_apikey: str = ""
+    dashboard_url: str = "https://vncsprttdsz.github.io/flights/latam.html"
     alert_drop_pct: float = 3.0
     headless: bool = True
 
@@ -64,6 +67,9 @@ class Config:
             report_path=Path(_env("LATAM_REPORT", "docs/latam.html")),
             debug_dir=Path(debug) if debug else None,
             ntfy_topic=_env("LATAM_NTFY_TOPIC", ""),
+            whatsapp_phone=_env("LATAM_WHATSAPP_PHONE", ""),
+            whatsapp_apikey=_env("LATAM_WHATSAPP_APIKEY", ""),
+            dashboard_url=_env("LATAM_DASHBOARD_URL", "https://vncsprttdsz.github.io/flights/latam.html"),
             alert_drop_pct=float(_env("LATAM_ALERT_DROP_PCT", "3")),
             headless=_env("LATAM_HEADLESS", "1") not in ("0", "false", "no"),
         )

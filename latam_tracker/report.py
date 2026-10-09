@@ -225,105 +225,167 @@ def markdown_summary(config: Config, a: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+CITY = {"GRU": "São Paulo", "CGH": "São Paulo", "GIG": "Rio de Janeiro", "LAX": "Los Angeles",
+        "JFK": "Nova York", "MIA": "Miami", "MCO": "Orlando", "BOS": "Boston", "LAS": "Las Vegas"}
+MODE_TITLE = {"cash": "Dinheiro", "points": "Pontos LATAM Pass"}
+
+
+def _e(v: Any) -> str:
+    return html.escape(str(v))
+
+
+def _hhmm(iso: str) -> str:
+    return iso[11:16] if len(iso) >= 16 else ""
+
+
+def _delta_html(cur: float, prev: float | None, mode: str) -> str:
+    if prev is None:
+        return ""
+    delta = cur - prev
+    if abs(delta) < 0.5:
+        return "<span class='pill flat'>= igual à consulta anterior</span>"
+    up = delta > 0
+    return (f"<span class='pill {'up' if up else 'down'}'>{'▲' if up else '▼'} {_e(fmt_price(abs(delta), mode))}"
+            f" {'mais caro' if up else 'mais barato'} que a consulta anterior</span>")
+
+
+def chart_series(config: Config, mode: str) -> list[dict]:
+    """Séries do gráfico: o total do voo ideal fica ligado; as pernas e a melhor combinação, no seletor."""
+    return [
+        {"key": f"ideal|{mode}", "label": "Total ida + volta", "slot": 1, "on": True},
+        {"key": f"ida|{config.outbound}|{mode}", "label": f"Ida {day_label(config.outbound)}", "slot": 2, "on": False},
+        {"key": f"volta|{config.inbound}|{mode}", "label": f"Volta {day_label(config.inbound)}", "slot": 3, "on": False},
+        {"key": mode, "label": "Melhor combinação (qualquer data)", "slot": 4, "on": False, "dash": True},
+    ]
+
+
+def alert_message(config: Config, a: dict[str, Any]) -> str:
+    """Texto do aviso (WhatsApp/ntfy): o que caiu, o preço atual do voo ideal e o link do dashboard."""
+    lines = list(a["alerts"])
+    for mode in config.modes:
+        cur = a["ideal"][mode]["current"]
+        if cur:
+            lines.append(f"Voo ideal ({day_label(config.outbound)} → {day_label(config.inbound)}): "
+                         f"{fmt_price(cur['price'], mode, cur['currency'])}{fmt_taxes(cur['taxes']) if mode == 'points' else ''}")
+    if config.dashboard_url:
+        lines.append(config.dashboard_url)
+    return "\n".join(lines)
+
+
 def write_dashboard(config: Config, a: dict[str, Any]) -> Path:
+    ideal_days = {("ida", config.outbound), ("volta", config.inbound)}
+    tag = " <span class='tag'>ideal</span>"
+
     def cell(leg: str, day: str, mode: str) -> str:
         q = a["best"].get((leg, day, mode))
         if not q:
             st = a["status"].get((leg, day, mode))
-            return f'<td class="muted">{STATUS_TEXT.get(st["status"], "—") if st else "—"}</td>'
+            return f"<td class='num muted'>{STATUS_TEXT.get(st['status'], '—') if st else '—'}</td>"
         price = _f(q["price"])
         low = a["low"].get((leg, day, mode))
-        badge = ' <span class="badge">mínimo</span>' if low is None or price <= low else ""
-        extra = html.escape(fmt_taxes(_f(q.get("taxes")))) if mode == "points" else ""
-        return (f'<td><b>{html.escape(fmt_price(price, mode, q.get("currency", "")))}</b>{extra}{badge}'
-                f'<div class="sub">{html.escape(q["flight"])} · {html.escape(q["brand"])} · '
-                f'{html.escape(q["depart"][11:16])}</div></td>')
+        badge = " <span class='badge'>mínimo</span>" if low is None or price <= low else ""
+        extra = _e(fmt_taxes(_f(q.get("taxes")))) if mode == "points" else ""
+        return (f"<td class='num'><b>{_e(fmt_price(price, mode, q.get('currency', '')))}</b>{extra}{badge}"
+                f"<div class='sub'>{_e(q['flight'])} · {_e(_hhmm(q['depart']))} → {_e(_hhmm(q['arrive']))}</div></td>")
 
-    ideal_days = {("ida", config.outbound), ("volta", config.inbound)}
-    star = ' <span class="tag">ideal</span>'
+    modes_shown = [m for m in ("cash", "points") if m in config.modes]
     legs_rows = []
     for leg, o, d, day in config.legs():
         is_ideal = (leg, day) in ideal_days
-        legs_rows.append(f"<tr{' class=ideal' if is_ideal else ''}><td>{leg} {o}→{d}</td>"
-                         f"<td>{day_label(day)}{star if is_ideal else ''}</td>"
-                         + "".join(cell(leg, day, m) for m in ("cash", "points") if m in config.modes) + "</tr>")
-    combo_tables = []
-    for mode in config.modes:
-        rows = a["combos"][mode][:9]
-        body = "".join(
-            f"<tr{' class=ideal' if r['out'] == config.outbound and r['in'] == config.inbound else ''}>"
-            f"<td>{day_label(r['out'])}</td><td>{day_label(r['in'])}"
-            f"{star if r['out'] == config.outbound and r['in'] == config.inbound else ''}</td><td>{r['nights']}</td>"
-            f"<td><b>{html.escape(fmt_price(r['price'], mode, r['currency']))}</b>"
-            f"{html.escape(fmt_taxes(r['taxes'])) if mode == 'points' else ''}</td>"
-            f"<td class='sub'>{html.escape(r['flights'])}</td></tr>"
-            for r in rows
-        ) or '<tr><td colspan="5" class="muted">Nenhuma combinação com voo direto nas duas pernas.</td></tr>'
-        title = "Dinheiro" if mode == "cash" else "Pontos LATAM Pass"
-        combo_tables.append(
-            f"<section><h2>Ida + volta — {title}</h2><div class='scroll'><table><thead><tr><th>Ida</th><th>Volta</th>"
-            f"<th>Noites</th><th>Total</th><th>Voos</th></tr></thead><tbody>{body}</tbody></table></div></section>"
-        )
-    cards = []
+        legs_rows.append(f"<tr{' class=ideal' if is_ideal else ''}><td>{'Ida' if leg == 'ida' else 'Volta'}"
+                         f"<div class='sub'>{o} → {d}</div></td><td>{day_label(day)}{tag if is_ideal else ''}</td>"
+                         + "".join(cell(leg, day, m) for m in modes_shown) + "</tr>")
+
+    sections = []
     for mode in config.modes:
         i = a["ideal"][mode]
         cur = i["current"]
-        title = "Dinheiro" if mode == "cash" else "Pontos LATAM Pass"
-        if not cur:
-            cards.append(f"<div class='hero-item'><div class='sub'>{title}</div>"
-                         f"<div class='big muted'>sem voo direto</div></div>")
-            continue
-        facts = []
-        if i["previous"] is not None:
-            delta = cur["price"] - i["previous"]
-            if abs(delta) < 0.5:
-                facts.append("igual à consulta anterior")
-            else:
-                arrow, cls = ("▼", "down") if delta < 0 else ("▲", "up")
-                facts.append(f"<span class='{cls}'>{arrow} {html.escape(fmt_price(abs(delta), mode))}</span> "
-                             "desde a consulta anterior")
-        if i["low"] is not None:
-            facts.append("menor valor já registrado" if cur["price"] <= i["low"]
-                         else f"mínimo: {html.escape(fmt_price(i['low'], mode))} em {html.escape(i['low_label'])}")
-        cheap = i["cheapest"]
-        if cheap and cheap["price"] < cur["price"]:
-            facts.append(f"{html.escape(fmt_price(cur['price'] - cheap['price'], mode))} acima da combinação mais "
-                         f"barata ({day_label(cheap['out'])} + {day_label(cheap['in'])})")
-        elif any(r["price"] == cur["price"] and r is not cur for r in a["combos"][mode]):
-            facts.append("empatado com a combinação mais barata")
-        elif cheap:
-            facts.append("é a combinação mais barata agora")
-        cards.append(
-            f"<div class='hero-item'><div class='sub'>{title} · ida + volta</div>"
-            f"<div class='big'>{html.escape(fmt_price(cur['price'], mode, cur['currency']))}"
-            f"{html.escape(fmt_taxes(cur['taxes'])) if mode == 'points' else ''}</div>"
-            f"<div class='sub'>{html.escape(cur['flights'])}</div>"
-            + "".join(f"<div class='fact'>{f}</div>" for f in facts) + "</div>"
+        title = MODE_TITLE[mode]
+        legs_html = ""
+        if cur:
+            facts = []
+            if i["low"] is not None:
+                facts.append("Menor valor já registrado" if cur["price"] <= i["low"]
+                             else f"Mínimo registrado: <b>{_e(fmt_price(i['low'], mode))}</b> ({_e(i['low_label'])})")
+            cheap = i["cheapest"]
+            if cheap and cheap["price"] < cur["price"]:
+                facts.append(f"<b>{_e(fmt_price(cur['price'] - cheap['price'], mode))}</b> acima da combinação mais barata "
+                             f"({day_label(cheap['out'])} → {day_label(cheap['in'])})")
+            elif any(r["price"] == cur["price"] and r is not cur for r in a["combos"][mode]):
+                facts.append("Empatado com a combinação mais barata")
+            elif cheap:
+                facts.append("É a combinação mais barata agora")
+            for leg, day in (("ida", config.outbound), ("volta", config.inbound)):
+                q = a["best"].get((leg, day, mode))
+                if q:
+                    legs_html += (f"<div class='leg'><span class='leg-k'>{'Ida' if leg == 'ida' else 'Volta'} · {day_label(day)}</span>"
+                                  f"<span class='leg-v'>{_e(fmt_price(_f(q['price']), mode, q.get('currency', '')))}</span>"
+                                  f"<span class='sub'>{_e(q['flight'])} · {_e(_hhmm(q['depart']))} → {_e(_hhmm(q['arrive']))}</span></div>")
+            price_html = (f"<div class='hero-price'>{_e(fmt_price(cur['price'], mode, cur['currency']))}"
+                          f"<span class='hero-tax'>{_e(fmt_taxes(cur['taxes'])) if mode == 'points' else ''}</span></div>"
+                          f"{_delta_html(cur['price'], i['previous'], mode)}"
+                          f"<ul class='facts'>{''.join(f'<li>{f}</li>' for f in facts)}</ul>")
+        else:
+            price_html = "<div class='hero-price muted'>sem voo direto</div>"
+        sections.append(
+            f"<section class='card hero'><div class='hero-main'><div class='eyebrow'>⭐ Voo ideal · {title} · por pessoa</div>"
+            f"<h2 class='hero-title'>{day_label(config.outbound)} → {day_label(config.inbound)}</h2>{price_html}</div>"
+            f"<div class='hero-legs'>{legs_html}</div></section>"
         )
-    ideal_html = (f"<section class='hero'><h2>⭐ Voo ideal: ida {day_label(config.outbound)} + volta "
-                  f"{day_label(config.inbound)}</h2><div class='hero-grid'>{''.join(cards)}</div></section>")
-    mode_heads = "".join(f"<th>{'Dinheiro' if m == 'cash' else 'Pontos'}</th>" for m in ("cash", "points") if m in config.modes)
-    alerts_html = "".join(f"<li>{html.escape(m)}</li>" for m in a["alerts"])
+        series = chart_series(config, mode)
+        chips = "".join(
+            f"<button type='button' class='chip' data-key='{_e(s['key'])}' aria-pressed='{str(s['on']).lower()}'>"
+            f"<span class='key s{s['slot']}{' dash' if s.get('dash') else ''}'></span>{_e(s['label'])}</button>"
+            for s in series)
+        sections.append(
+            f"<section class='card'><div class='card-head'><h2>Histórico de preços · {title}</h2>"
+            f"<div class='chips' role='group' aria-label='Séries do gráfico'>{chips}</div></div>"
+            f"<div class='chart' data-mode='{mode}'></div>"
+            f"<p class='sub'>Cada ponto é uma consulta. Passe o mouse (ou toque) para ver os valores.</p></section>"
+        )
+
+    combo_html = []
+    for mode in config.modes:
+        rows = a["combos"][mode][:9]
+        body = "".join(
+            f"<tr{' class=ideal' if (r['out'], r['in']) == (config.outbound, config.inbound) else ''}>"
+            f"<td>{day_label(r['out'])}</td><td>{day_label(r['in'])}"
+            f"{tag if (r['out'], r['in']) == (config.outbound, config.inbound) else ''}</td><td class='num hide-sm'>{r['nights']}</td>"
+            f"<td class='num'><b>{_e(fmt_price(r['price'], mode, r['currency']))}</b>"
+            f"{_e(fmt_taxes(r['taxes'])) if mode == 'points' else ''}</td>"
+            f"<td class='sub hide-sm'>{_e(r['flights'])}</td></tr>"
+            for r in rows
+        ) or "<tr><td colspan='5' class='muted'>Nenhuma combinação com voo direto nas duas pernas.</td></tr>"
+        combo_html.append(
+            f"<section class='card'><h2>Combinações ida + volta · {MODE_TITLE[mode]}</h2><div class='scroll'><table>"
+            f"<thead><tr><th>Ida</th><th>Volta</th><th class='num hide-sm'>Noites</th><th class='num'>Total</th><th class='hide-sm'>Voos</th></tr></thead>"
+            f"<tbody>{body}</tbody></table></div></section>"
+        )
+
+    heads = "".join(f"<th class='num'>{MODE_TITLE[m].split()[0]}</th>" for m in modes_shown)
+    alerts_html = "".join(f"<li>{_e(m)}</li>" for m in a["alerts"])
+    o, d = config.origin, config.destination
     page = TEMPLATE.read_text(encoding="utf-8")
     replacements = {
-        "__TITLE__": f"LATAM {config.origin} ⇄ {config.destination}",
-        "__SUBTITLE__": (f"Voos diretos · ida {day_label(config.outbound)} e volta {day_label(config.inbound)} "
-                         f"(±{config.flex_days} dia) · {config.adults} adulto(s) · {config.cabin}"),
-        "__UPDATED__": local_time(a["latest"]) if a["latest"] else "—",
-        "__CHECKS__": str(a["checks"]),
-        "__ALERTS__": f"<ul class='alerts'>{alerts_html}</ul>" if alerts_html else "",
-        "__IDEAL__": ideal_html,
-        "__CHARTS__": "".join(
-            f'<div><h2 class="sub">{"Dinheiro (R$)" if m == "cash" else "Pontos"}</h2>'
-            f'<div class="chart"><canvas id="c-{m}"></canvas></div></div>' for m in config.modes),
-        "__MODE_HEADS__": mode_heads,
+        "__TITLE__": f"{CITY.get(o, o)} ⇄ {CITY.get(d, d)}",
+        "__ROUTE__": (f"{_e(CITY.get(o, o))} <span class='code'>{o}</span> ⇄ "
+                      f"{_e(CITY.get(d, d))} <span class='code'>{d}</span>"),
+        "__META__": "".join(f"<span class='meta'>{x}</span>" for x in (
+            "LATAM · voos diretos", f"{config.adults} adulto{'s' if config.adults > 1 else ''} · "
+            f"{ {'Economy': 'Econômica', 'Premium': 'Premium Economy', 'Business': 'Executiva'}.get(config.cabin, config.cabin)}",
+            f"Datas ±{config.flex_days} dia", f"Atualizado {local_time(a['latest']) if a['latest'] else '—'}",
+            f"{a['checks']} consultas")),
+        "__ALERTS__": (f"<section class='card alerts'><h2>Novidades da última consulta</h2><ul>{alerts_html}</ul></section>"
+                       if alerts_html else ""),
+        "__SECTIONS__": "".join(sections),
+        "__MODE_HEADS__": heads,
         "__LEG_ROWS__": "".join(legs_rows),
-        "__COMBOS__": "".join(combo_tables),
-        "__DATA__": json.dumps({"history": a["history"], "modes": config.modes,
-                                "idealLabel": f"Voo ideal ({day_label(config.outbound)} + {day_label(config.inbound)})",
-                                "series": [f"{leg}|{day}|{m}" for leg, _o, _d, day in config.legs() for m in config.modes],
-                                "labels": {f"{leg}|{day}": f"{leg} {day_label(day)}" for leg, _o, _d, day in config.legs()}},
-                               ensure_ascii=False).replace("</", "<\\/"),
+        "__COMBOS__": "".join(combo_html),
+        "__DATA__": json.dumps({
+            "history": [{k: v for k, v in h.items()} for h in a["history"]],
+            "series": {m: chart_series(config, m) for m in config.modes},
+            "units": {m: ("pts" if m == "points" else "R$") for m in config.modes},
+        }, ensure_ascii=False).replace("</", "<\\/"),
     }
     for k, v in replacements.items():
         page = page.replace(k, v)

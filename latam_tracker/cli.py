@@ -10,7 +10,7 @@ import sys
 from .config import Config
 from .fetch import FetchError, make_fetcher
 from .notify import notify
-from .report import analyze, markdown_summary, write_dashboard
+from .report import alert_message, analyze, markdown_summary, write_dashboard
 from .storage import Storage
 from .tracker import run
 
@@ -48,7 +48,7 @@ def cmd_run(args: argparse.Namespace, config: Config) -> int:
     write_dashboard(config, a)
     _publish_summary(markdown_summary(config, a))
     if a["alerts"]:
-        notify(config, f"LATAM {config.origin}⇄{config.destination}", "\n".join(a["alerts"]))
+        notify(config, f"✈️ LATAM {config.origin}⇄{config.destination}: preço caiu", alert_message(config, a))
     return 3 if result.failed else 0
 
 
@@ -56,6 +56,17 @@ def cmd_report(args: argparse.Namespace, config: Config) -> int:
     path = write_dashboard(config, _analysis(config))
     print(f"Dashboard gravado em {path}")
     return 0
+
+
+def cmd_test_notify(args: argparse.Namespace, config: Config) -> int:
+    """Manda uma mensagem de teste pelos canais configurados (WhatsApp/ntfy)."""
+    if not (config.whatsapp_phone and config.whatsapp_apikey) and not config.ntfy_topic:
+        logging.error("Nenhum canal configurado (LATAM_WHATSAPP_PHONE + LATAM_WHATSAPP_APIKEY ou LATAM_NTFY_TOPIC).")
+        return 2
+    a = _analysis(config)
+    body = alert_message(config, a) if a["latest"] else "Ainda sem consultas registradas."
+    ok = notify(config, "✈️ Teste do monitor LATAM", body)
+    return 0 if ok else 1
 
 
 def cmd_summary(args: argparse.Namespace, config: Config) -> int:
@@ -93,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--headed", action="store_true", help="mostra a janela do navegador")
     sub.add_parser("report", help="só regera docs/latam.html")
     sub.add_parser("summary", help="resumo da última consulta em Markdown")
+    sub.add_parser("test-notify", help="envia uma mensagem de teste no WhatsApp/ntfy")
     d = sub.add_parser("diagnose", help="uma busca isolada para conferir se a coleta funciona")
     d.add_argument("--date", help="AAAA-MM-DD (padrão: data central)")
     d.add_argument("--back", action="store_true", help="trecho de volta")
@@ -108,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         config.cash_source = args.source
     if getattr(args, "headed", False):
         config.headless = False
-    return {"run": cmd_run, "report": cmd_report, "summary": cmd_summary, "diagnose": cmd_diagnose}[args.cmd](args, config)
+    return {"run": cmd_run, "report": cmd_report, "summary": cmd_summary, "test-notify": cmd_test_notify, "diagnose": cmd_diagnose}[args.cmd](args, config)
 
 
 if __name__ == "__main__":

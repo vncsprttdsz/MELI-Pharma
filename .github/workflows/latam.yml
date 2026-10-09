@@ -11,6 +11,10 @@ on:
         description: "Só diagnosticar uma busca (não salva dados)"
         type: boolean
         default: false
+      test_notify:
+        description: "Só enviar uma mensagem de teste no WhatsApp/ntfy"
+        type: boolean
+        default: false
       diagnose_args:
         description: "Argumentos do diagnóstico (ex.: --back --date 2027-04-11)"
         type: string
@@ -37,6 +41,8 @@ jobs:
       LATAM_ENGINE: ${{ vars.LATAM_ENGINE || 'chromium' }}
       LATAM_PROXY: ${{ secrets.LATAM_PROXY }}
       LATAM_NTFY_TOPIC: ${{ secrets.LATAM_NTFY_TOPIC }}
+      LATAM_WHATSAPP_PHONE: ${{ secrets.LATAM_WHATSAPP_PHONE }}
+      LATAM_WHATSAPP_APIKEY: ${{ secrets.LATAM_WHATSAPP_APIKEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,8 +64,12 @@ jobs:
         if: ${{ inputs.diagnose }}
         run: xvfb-run -a python -m latam_tracker diagnose ${{ inputs.diagnose_args }}
 
+      - name: Testar aviso
+        if: ${{ inputs.test_notify }}
+        run: python -m latam_tracker test-notify
+
       - name: Consultar
-        if: ${{ !inputs.diagnose }}
+        if: ${{ !inputs.diagnose && !inputs.test_notify }}
         run: |
           code=0
           xvfb-run -a python -m latam_tracker run || code=$?
@@ -76,7 +86,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Commitar dados
-        if: ${{ !inputs.diagnose }}
+        if: ${{ !inputs.diagnose && !inputs.test_notify }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
